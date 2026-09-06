@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ja">
+	<head>
+		<meta charset="UTF-8">
+		<title>登録してください</title>
+	</head>
+	<body>
+		<form th:action="@{/users/logIn}"
+			      th:object="${user}"
+			      method="post">
+				  
+				  <div class="form-group">
+					<label>ユーザー名</label>
+					<input name = "userName">
+				  </div>
+				  
+				  <div class="form-group">
+					<label>パスワード</label>
+					<input type="password" name="password">
+				  </div>
+				  <button type="submit">登録</button>
+		</form>
+	</body>
+</html>

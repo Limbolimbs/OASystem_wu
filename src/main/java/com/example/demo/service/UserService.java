@@ -23,4 +23,8 @@ public class UserService {
     public User save(User user) {
     	return userRepository.save(user);
     }
+    
+    public int findOne(String userName,String password) {
+    	return userRepository.countUser(userName, password);
+    }
 }
