@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ja"xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<title>従業員登録</title>
+	
+	<style>
+		body{
+			font-family:sans-serif;
+			margin:30px;
+		}
+		
+		.form-group{
+			margin-bottom;15px;
+		}
+		
+		label{
+			display:inline-block;
+			width:130px;
+		}
+		
+		input,select{
+			width:260px;
+			padding:8px;
+		}
+		
+		button{
+			padding;8px 20px;
+			backgroung-color:#203864;
+			color:white;
+			border:none;
+			cursor:pointer;
+		}
+	</style>
+</head>
+<body>
+	
+	<h1>従業員新規登録</h1>
+	
+	<form th:action="@{/users/save}"
+	      th:object="${user}"
+	      method="post">
+		  
+		  <div class="form-group">
+			<label>ユーザー名</label>
+			<input type="text"
+			       th:field="*{username}"
+				   required>
+		  </div>
+		  
+		  <div class="form-group">
+			<label>パスワード</label>
+			<input type="password"
+			       th:field="*{password}"
+				   required>
+		  </div>
+		  
+		  <div class="form-group">
+			<label>氏名</label>
+			<input type="text"
+			       th:field="*{realName}"
+				   required>
+		  </div>
+		  
+		  <div class="form-group">
+			<label>部署</label>
+			<input type="text"
+			       th:field="*{department}">
+		  </div>
+		  
+		  <div class="form-group">
+			<label>役割</label>
+			<select th:field="*{role}">
+				<option value="EMPLOYEE">一般社員</option>
+				<option value="ADMIN">管理者</option>
+			</select>
+		</div>
+		
+		<button type="submit">登録</button>
+	</form>
+	
+	<p>
+		<a href="/users">従業員一覧に戻る</a>
+	</p>
+	
+</body>
+</html>

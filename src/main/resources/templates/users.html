@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.themeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<title>従業員一覧q</title>
+	
+	<style>
+		body{
+			font-family:sans-serif;
+			margin:30px;
+		}
+		
+		table{
+			width:100%;
+			border-collapse:collapse;
+		}
+		
+		th,td{
+			border:1px solid #ccccc;
+			padding:10px;
+			text-align:left;
+		}
+		
+		th{
+			background-color:#203864;
+			color:white;
+		}
+	</style>
+</head>
+<body>
+	
+	<h1>従業員一覧</h1>
+	
+	<table>
+		<thead>
+			<tr>
+				<th>ID</th>
+				<th>ユーザー名</th>
+				<th>氏名</th>
+				<th>部署</th>
+				<th>役割</th>
+				<th>状態</th>
+			</tr>
+		</thead>
+		
+		<tbody>
+			<tr th:each="user:${users}">
+				<td th:text="${user.id}"></td>
+				<td th:text="${user.username}"></td>
+				<td th:text="${user.realName}"></td>
+				<td th:text="${user.department}"></td>
+				<td th:text="${user.role}"></td>
+				<td th:text="${user.status == 1?'有効':'無効'}"></td>
+			</tr>
+		</tbody>
+	</table>
+	
+	<p>
+		<a href="/users/new">従業員を新規登録</a>
+	</p>
+	
+	<p>
+		<a href="/">トップページに戻る</a>
+	</p>
+	
+</body>
+</html>
