@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import com.example.demo.entity.User;
 import com.example.demo.service.UserService;
 
+import jakarta.servlet.http.HttpSession;
+
 @Controller
 @RequestMapping("/users")
 public class UserController {
@@ -42,18 +44,28 @@ public class UserController {
 	}
 	
 	@PostMapping("/logIn")
-	//@ResponseBody
-	public String logIn(@RequestParam String userName,@RequestParam String password) {
-//		if("admin".equals(userName)&&"password".equals(password)) {
-//			return "index";
-//		}else {
-//			return "NG";
-//		}
-		int count = userService.findOne(userName, password);
-		if(count > 0) {
-			return "index";
-		}else {
-			return "user-form";
+	public String logIn(@RequestParam(value = "userName",required = false) String userName,@RequestParam(value = "password",required = false) String password,Model model,HttpSession session) {
+		
+		if(userName == null || userName.isBlank() || password == null ||password.isBlank()) {
+			model.addAttribute(
+				"errorMessage",	
+				"ユーザー名とパスワードを入力してください。"
+			);
+			return "log-in";
 		}
+		int count = userService.findOne(userName.trim(), password);
+		if(count > 0) {
+			//保持登陆状态
+			session.setAttribute("loginUser", userName);
+			//跳转主页
+			return "redirect:/home";
+		}
+		
+		model.addAttribute(
+			"errorMessage",
+			"ユーザー名またはパスワードが正しくありません。"
+		);
+		
+		return "log-in";
 	}
 }
