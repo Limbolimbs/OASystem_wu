@@ -341,7 +341,7 @@
 				border-radius: 10px;
 				cursor: pointer;
 				
-				color: #fffff;
+				color: #ffffff;
 				background: linear-gradient(135deg,#2563eb,#174ca5);
 				
 				font-family: inherit;
@@ -352,7 +352,7 @@
 				box-shadow: 0 12px 25px rgba(37,99,235,0.23);
 				
 				transition: 
-					transition 0.2s,
+					transform 0.2s,
 					box-shadow 0.2s,
 					background 0.2s;
 			}
@@ -402,9 +402,70 @@
 				font-size: 11px;
 				letter-spacing: 0.06em;
 			}
+			
+			/* 手机和小窗口适配 */
+			@media (max-width: 850px) {
+			     body {
+			       padding: 30px 18px 65px;
+			     }
+
+			     .login-container {
+			        max-width: 520px;
+			        min-height: auto;
+			        grid-template-columns: 1fr;
+			      }
+
+			      .brand-panel {
+			         display: none;
+			      }
+
+			      .login-panel {
+			         padding: 55px 38px;
+			      }
+			}
+
+			@media (max-width: 480px) {
+			       .login-panel {
+			         padding: 42px 24px;
+			       }
+
+			       .login-title {
+			         font-size: 27px;
+			       }
 		</style>
 </head>	
-
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script>
+$(document).ready(function() {
+	$(".error-message").hide();
+	$(".login-button").click(function() {
+		let userName = $("#userName").val();
+		let password = $("#password").val();
+		
+		if(userName == ""||password == ""){
+			$(".error-message").show();
+			$(".error-message").text("ユーザー名とパスワードを入力してください。");
+			return;
+		}
+		$.ajax({
+		    url: "/users/login",
+		    type: "POST",
+		    data: {
+		        userName: $("#userName").val(),
+		        password: $("#password").val()
+		    },
+		    success: function(data) {
+				if(data == "OK"){
+					window.location.href = "/home";
+				}else{
+					$(".error-message").show();
+					$(".error-message").text("ユーザー名またはパスワードが正しくありません。");
+				}
+			}
+		});
+ 	});
+});
+</script>
 <body>
 	<main class="login-container">
 		<!-- 左边企业介绍 -->
@@ -413,7 +474,7 @@
 			<header class="brand-header">
 				<div class="brand-logo">OA</div>
 				
-				<div
+				<div>
 					<p class="brand-name">OA PORTAL</p>
 					<p class="brand-system-name">OFFICE AUTOMATION SYSTEM</p>
 				</div>
@@ -454,7 +515,6 @@
 				</header>
 				
 				
-		        <form th:action="@{/users/logIn}" method="post">
 				  
 				  <div class="form-group">
 					<label for="userName">ユーザー名</label>
@@ -464,7 +524,7 @@
 						   type="text"
 						   placeholder="ユーザー名を入力"
 						   autocomplete="username"
-						   required>
+						   >
 				  </div>
 				  
 				  <div class="form-group">
@@ -476,21 +536,17 @@
 						   type="password"
 						   placeholder="パスワードを入力"
 						   autocomplete="current-password"
-						   required>
+						   >
 				  </div>
 				  
 				  <!-- 登录失败时显示 -->
 				  <div class="error-message"
-				       th:if="${errorMessage}"
-					   th:text="${errorMessage}"
 					   role="alert">
 				  </div>
 				  
-				  <button class="login-button" type="submit">
+				  <button class="login-button">
 					ログイン
 				  </button>
-				  
-			    </form>
 				
 				<div class="security-note">
 					<span class="security-dot"></span>

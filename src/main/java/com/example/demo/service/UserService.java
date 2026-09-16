@@ -27,4 +27,17 @@ public class UserService {
     public int findOne(String userName,String password) {
     	return userRepository.countUser(userName, password);
     }
+    
+    public User findLoginUser(
+            String userName,
+            String password) {
+
+        return userRepository
+                .findByUsernameAndPassword(
+                        userName,
+                        password
+                )
+                .orElse(null);
+    }
+    
 }

@@ -1,5 +1,7 @@
 package com.example.demo.controller;
 
+import java.util.Optional;
+
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -43,29 +45,28 @@ public class UserController {
 		return "redirect:/users";
 	}
 	
-	@PostMapping("/logIn")
-	public String logIn(@RequestParam(value = "userName",required = false) String userName,@RequestParam(value = "password",required = false) String password,Model model,HttpSession session) {
+	@PostMapping("/login")
+	@ResponseBody
+	public String logIn(@RequestParam String userName,@RequestParam String password,Model model,HttpSession session) {
 		
-		if(userName == null || userName.isBlank() || password == null ||password.isBlank()) {
-			model.addAttribute(
-				"errorMessage",	
-				"ユーザー名とパスワードを入力してください。"
-			);
-			return "log-in";
-		}
-		int count = userService.findOne(userName.trim(), password);
-		if(count > 0) {
-			//保持登陆状态
-			session.setAttribute("loginUser", userName);
-			//跳转主页
-			return "redirect:/home";
+		User loginUser = userService.findLoginUser(userName.trim(), password);
+		
+		if(loginUser == null) {
+			return "NG";
 		}
 		
-		model.addAttribute(
-			"errorMessage",
-			"ユーザー名またはパスワードが正しくありません。"
-		);
+		String realName = loginUser.getRealName();
 		
-		return "log-in";
+		//如果没有填写realname，显示登陆账号
+		if(realName == null || realName.isBlank()) {
+			realName = loginUser.getUsername();
+		}
+		//拦截器使用的登陆状态
+		session.setAttribute("loginUser", loginUser.getUsername());
+		//页面右上角显示真实姓名
+		session.setAttribute("loginRealName", realName);
+		
+		return "OK";
+		
 	}
 }
