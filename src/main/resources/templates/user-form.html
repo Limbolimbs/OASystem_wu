@@ -1,87 +1,193 @@
 <!DOCTYPE html>
-<html lang="ja"xmlns:th="http://www.thymeleaf.org">
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
 <head>
 	<meta charset="UTF-8">
-	<title>従業員登録</title>
-	
-	<style>
-		body{
-			font-family:sans-serif;
-			margin:30px;
-		}
-		
-		.form-group{
-			margin-bottom;15px;
-		}
-		
-		label{
-			display:inline-block;
-			width:130px;
-		}
-		
-		input,select{
-			width:260px;
-			padding:8px;
-		}
-		
-		button{
-			padding;8px 20px;
-			backgroung-color:#203864;
-			color:white;
-			border:none;
-			cursor:pointer;
-		}
-	</style>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>従業員新規登録 | 企業OAシステム</title>
+	<link rel="stylesheet" href="/css/users.css" th:href="@{/css/users.css}">
+	<link rel="stylesheet" href="/css/user-form.css" th:href="@{/css/user-form.css}">
 </head>
+
 <body>
-	
-	<h1>従業員新規登録</h1>
-	
-	<form th:action="@{/users/save}"
-	      th:object="${user}"
-	      method="post">
-		  
-		  <div class="form-group">
-			<label>ユーザー名</label>
-			<input type="text"
-			       th:field="*{username}"
-				   required>
-		  </div>
-		  
-		  <div class="form-group">
-			<label>パスワード</label>
-			<input type="password"
-			       th:field="*{password}"
-				   required>
-		  </div>
-		  
-		  <div class="form-group">
-			<label>氏名</label>
-			<input type="text"
-			       th:field="*{realName}"
-				   required>
-		  </div>
-		  
-		  <div class="form-group">
-			<label>部署</label>
-			<input type="text"
-			       th:field="*{department}">
-		  </div>
-		  
-		  <div class="form-group">
-			<label>役割</label>
-			<select th:field="*{role}">
-				<option value="EMPLOYEE">一般社員</option>
-				<option value="ADMIN">管理者</option>
-			</select>
-		</div>
-		
-		<button type="submit">登録</button>
-	</form>
-	
-	<p>
-		<a href="/users">従業員一覧に戻る</a>
-	</p>
-	
+	<div class="app-shell">
+		<aside class="sidebar">
+			<div class="brand">
+				<div class="brand-mark">OA</div>
+				<div>
+					<p class="brand-name">企業OAシステム</p>
+					<p class="brand-subtitle">BUSINESS PORTAL</p>
+				</div>
+			</div>
+
+			<p class="menu-label">MAIN MENU</p>
+			<nav class="nav-list" aria-label="メインメニュー">
+				<a class="nav-item" th:href="@{/home}">
+					<span class="nav-icon">HM</span><span>ホーム</span>
+				</a>
+				<a class="nav-item active" th:href="@{/users}" aria-current="page">
+					<span class="nav-icon">HR</span><span>従業員情報管理</span>
+				</a>
+				<span class="nav-item disabled" aria-disabled="true">
+					<span class="nav-icon">LV</span><span>休暇申請・承認</span>
+				</span>
+				<span class="nav-item disabled" aria-disabled="true">
+					<span class="nav-icon">NT</span><span>お知らせ管理</span>
+				</span>
+			</nav>
+
+			<div class="sidebar-bottom">
+				<a class="logout-button" th:href="@{/logout}">
+					<span class="nav-icon">EX</span><span>ログアウト</span>
+				</a>
+			</div>
+		</aside>
+
+		<section class="main-area">
+			<header class="topbar">
+				<div>
+					<p class="topbar-title">従業員新規登録</p>
+					<p class="current-time" id="currentTime">--</p>
+				</div>
+				<div class="login-user">
+					<div class="user-avatar">U</div>
+					<div>
+						<p class="login-caption">ログイン中</p>
+						<p class="login-name"
+							th:text="${session.loginRealName != null ? session.loginRealName : '社内ユーザー'}">
+							社内ユーザー
+						</p>
+					</div>
+				</div>
+			</header>
+
+			<main class="content">
+				<nav class="breadcrumb" aria-label="パンくずリスト">
+					<a th:href="@{/users}">従業員情報管理</a>
+					<span>/</span>
+					<span>新規登録</span>
+				</nav>
+
+				<section class="page-hero registration-hero">
+					<div>
+						<p class="eyebrow">NEW EMPLOYEE</p>
+						<h1>従業員新規登録</h1>
+						<p class="hero-description">新しい従業員のアカウント情報と所属情報を登録します。</p>
+					</div>
+					<div class="hero-step"><strong>01</strong><span>基本情報入力</span></div>
+				</section>
+
+				<div class="registration-grid">
+					<section class="form-panel">
+						<header class="form-panel-header">
+							<div>
+								<p class="section-label">EMPLOYEE PROFILE</p>
+								<h2>従業員情報</h2>
+								<p>登録に必要な情報を入力してください。</p>
+							</div>
+							<span class="required-guide"><span>*</span> 必須項目</span>
+						</header>
+
+						<form class="employee-form" th:action="@{/users/save}" th:object="${user}" method="post">
+							<div class="form-grid">
+								<div class="form-field">
+									<label for="username">ユーザー名 <span class="required">*</span></label>
+									<input id="username" type="text" th:field="*{username}"
+										maxlength="50" placeholder="例：yamada" autocomplete="username" required>
+									<p class="field-help">ログイン時に使用する一意のユーザー名です。</p>
+								</div>
+
+								<div class="form-field">
+									<label for="password">初期パスワード <span class="required">*</span></label>
+									<div class="password-field">
+										<input id="password" type="password" th:field="*{password}"
+											maxlength="255" placeholder="初期パスワードを入力"
+											autocomplete="new-password" required>
+										<button class="password-toggle" id="passwordToggle" type="button"
+											aria-label="パスワードを表示">表示</button>
+									</div>
+									<p class="field-help">本人へ安全な方法で通知してください。</p>
+								</div>
+
+								<div class="form-field">
+									<label for="realName">氏名 <span class="required">*</span></label>
+									<input id="realName" type="text" th:field="*{realName}"
+										maxlength="50" placeholder="例：山田 太郎" autocomplete="name" required>
+									<p class="field-help">画面上に表示される正式な氏名です。</p>
+								</div>
+
+								<div class="form-field">
+									<label for="department">部署</label>
+									<input id="department" type="text" th:field="*{department}"
+										maxlength="50" list="departmentOptions" placeholder="例：営業部">
+									<datalist id="departmentOptions">
+										<option value="総務部"></option>
+										<option value="営業部"></option>
+										<option value="人事部"></option>
+										<option value="経理部"></option>
+										<option value="情報システム部"></option>
+									</datalist>
+									<p class="field-help">候補から選択、または直接入力できます。</p>
+								</div>
+
+								<div class="form-field form-field-full">
+									<label for="role">システム権限 <span class="required">*</span></label>
+									<select id="role" th:field="*{role}" required>
+										<option value="EMPLOYEE">一般社員（通常機能を利用）</option>
+										<option value="ADMIN">管理者（管理機能を利用）</option>
+									</select>
+									<p class="field-help">業務上必要な範囲で権限を設定してください。</p>
+								</div>
+							</div>
+
+							<div class="form-actions">
+								<a class="secondary-button" th:href="@{/users}">キャンセル</a>
+								<button class="submit-button" type="submit">
+									<span>従業員を登録</span><span aria-hidden="true">→</span>
+								</button>
+							</div>
+						</form>
+					</section>
+
+					<aside class="support-panel">
+						<div class="support-icon">✓</div>
+						<p class="section-label">REGISTRATION GUIDE</p>
+						<h2>登録前の確認</h2>
+						<ul class="check-list">
+							<li><span>1</span><p><strong>ユーザー名</strong>既存ユーザーと重複しない名前を指定します。</p></li>
+							<li><span>2</span><p><strong>所属情報</strong>氏名と部署に入力間違いがないか確認します。</p></li>
+							<li><span>3</span><p><strong>権限設定</strong>通常は「一般社員」を選択します。</p></li>
+						</ul>
+						<div class="security-note">
+							<strong>アカウント状態</strong>
+							<p>登録後、アカウントは自動的に「有効」になります。</p>
+						</div>
+					</aside>
+				</div>
+			</main>
+		</section>
+	</div>
+
+	<script>
+		function updateClock() {
+			const now = new Date();
+			const date = new Intl.DateTimeFormat("ja-JP", {
+				year: "numeric", month: "long", day: "numeric", weekday: "short"
+			}).format(now);
+			document.getElementById("currentTime").textContent =
+				date + " " + now.toLocaleTimeString("ja-JP", { hour12: false });
+		}
+
+		const passwordInput = document.getElementById("password");
+		const passwordToggle = document.getElementById("passwordToggle");
+		passwordToggle.addEventListener("click", function () {
+			const hidden = passwordInput.type === "password";
+			passwordInput.type = hidden ? "text" : "password";
+			this.textContent = hidden ? "非表示" : "表示";
+			this.setAttribute("aria-label", hidden ? "パスワードを非表示" : "パスワードを表示");
+		});
+
+		updateClock();
+		setInterval(updateClock, 1000);
+	</script>
 </body>
 </html>
