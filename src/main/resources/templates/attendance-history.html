@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>勤怠履歴 | 企業OAシステム</title>
+    <link rel="stylesheet" th:href="@{/css/users.css}" href="/css/users.css">
+    <link rel="stylesheet" th:href="@{/css/attendance.css}" href="/css/attendance.css">
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand"><div class="brand-mark">OA</div><div>
+            <p class="brand-name">企業OAシステム</p><p class="brand-subtitle">社内ポータル</p>
+        </div></div>
+        <p class="menu-label">メインメニュー</p>
+        <nav class="nav-list" aria-label="メインメニュー">
+            <a class="nav-item" th:if="${admin}" th:href="@{/home}"><span class="nav-icon">HM</span>ホーム</a>
+            <a class="nav-item" th:if="${admin}" th:href="@{/users}"><span class="nav-icon">HR</span>従業員情報管理</a>
+            <a class="nav-item active" th:href="@{/attendance}"><span class="nav-icon">AT</span>勤怠管理</a>
+            <a class="nav-item" th:href="@{/attendance/manage}"><span class="nav-icon">RQ</span>勤怠申請・承認</a>
+        </nav>
+        <div class="sidebar-bottom"><a class="logout-button" th:href="@{/logout}"><span class="nav-icon">EX</span>ログアウト</a></div>
+    </aside>
+    <section class="main-area">
+        <header class="topbar"><div><p class="topbar-title">勤怠履歴</p><p class="current-time" id="currentTime">--</p></div>
+            <div class="login-user"><div class="user-avatar">U</div><div>
+                <p class="login-caption">ログイン中</p><p class="login-name" th:text="${user.realName}">氏名</p>
+            </div></div>
+        </header>
+        <main class="content">
+            <section class="page-hero"><div><p class="eyebrow">ATTENDANCE HISTORY</p>
+                <h1>勤怠履歴</h1><p class="hero-description" th:text="${target.realName + ' の勤務予定と打刻履歴'}">勤務履歴</p>
+            </div><a class="attendance-date" th:href="@{/attendance}">打刻画面へ戻る</a></section>
+            <section class="table-panel attendance-records">
+                <div class="table-toolbar attendance-toolbar"><div class="table-title">
+                    <h2>検索条件</h2><p>無効化した従業員の過去記録も確認できます。1回の検索は最大31日間です。</p>
+                </div></div>
+                <form class="attendance-filter history-filter" th:action="@{/attendance/history}" method="get">
+                    <label th:if="${reviewer}">従業員<select name="userId">
+                        <option th:each="person : ${users}" th:value="${person.id}" th:selected="${person.id == target.id}"
+                                th:text="${person.realName + '（' + (person.status == 1 ? '有効' : '無効') + '）'}">従業員</option>
+                    </select></label>
+                    <label>開始日<input name="from" type="date" th:value="${from}" required></label>
+                    <label>終了日<input name="to" type="date" th:value="${to}" required></label>
+                    <button type="submit">検索</button>
+                </form>
+                <div class="table-scroll"><table class="attendance-table"><thead><tr>
+                    <th>勤務日</th><th>日種別</th><th>勤務形態</th><th>予定始業</th><th>予定終業</th>
+                    <th>出勤</th><th>退勤</th><th>休憩 / 実働</th><th>状態</th>
+                </tr></thead><tbody>
+                <tr th:each="row : ${rows}">
+                    <td th:text="${row.workDate}">日付</td>
+                    <td th:text="${row.statuses.contains('在籍外') ? '在籍外' : row.schedule.dayType.label}">日種別</td>
+                    <td th:text="${row.schedule.workMode.label}">勤務形態</td>
+                    <td th:text="${row.schedule.plannedStartAt != null ? row.schedule.plannedStartAt : '-'}">-</td>
+                    <td th:text="${row.schedule.plannedEndAt != null ? row.schedule.plannedEndAt : '-'}">-</td>
+                    <td th:text="${row.clockInAt != null ? row.clockInAt : '-'}">-</td>
+                    <td th:text="${row.clockOutAt != null ? row.clockOutAt : '-'}">-</td>
+                    <td th:text="${row.breakMinutes + '分 / ' + row.workedMinutes + '分'}">-</td>
+                    <td th:text="${row.statusText}">状態</td>
+                </tr>
+                </tbody></table></div>
+            </section>
+        </main>
+    </section>
+</div>
+<script th:src="@{/js/attendance.js}" src="/js/attendance.js"></script>
+</body>
+</html>

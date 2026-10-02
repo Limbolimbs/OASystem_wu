@@ -27,9 +27,12 @@
 				<a class="nav-item active" th:href="@{/users}" aria-current="page">
 					<span class="nav-icon">HR</span><span>従業員情報管理</span>
 				</a>
-				<span class="nav-item disabled" aria-disabled="true">
-					<span class="nav-icon">LV</span><span>休暇申請・承認</span>
-				</span>
+				<a class="nav-item" th:href="@{/attendance}">
+					<span class="nav-icon">AT</span><span>勤怠管理</span>
+				</a>
+				<a class="nav-item" th:href="@{/attendance/manage}">
+					<span class="nav-icon">RQ</span><span>勤怠申請・承認</span>
+				</a>
 				<span class="nav-item disabled" aria-disabled="true">
 					<span class="nav-icon">NT</span><span>お知らせ管理</span>
 				</span>
@@ -133,6 +136,7 @@
 									<label for="role">システム権限 <span class="required">*</span></label>
 									<select id="role" th:field="*{role}" required>
 										<option value="EMPLOYEE">一般社員（通常機能を利用）</option>
+										<option value="GENERAL_AFFAIRS">総務担当（勤怠申請を審査）</option>
 										<option value="ADMIN">管理者（管理機能を利用）</option>
 									</select>
 									<p class="field-help">業務上必要な範囲で権限を設定してください。</p>
@@ -167,27 +171,6 @@
 		</section>
 	</div>
 
-	<script>
-		function updateClock() {
-			const now = new Date();
-			const date = new Intl.DateTimeFormat("ja-JP", {
-				year: "numeric", month: "long", day: "numeric", weekday: "short"
-			}).format(now);
-			document.getElementById("currentTime").textContent =
-				date + " " + now.toLocaleTimeString("ja-JP", { hour12: false });
-		}
-
-		const passwordInput = document.getElementById("password");
-		const passwordToggle = document.getElementById("passwordToggle");
-		passwordToggle.addEventListener("click", function () {
-			const hidden = passwordInput.type === "password";
-			passwordInput.type = hidden ? "text" : "password";
-			this.textContent = hidden ? "非表示" : "表示";
-			this.setAttribute("aria-label", hidden ? "パスワードを非表示" : "パスワードを表示");
-		});
-
-		updateClock();
-		setInterval(updateClock, 1000);
-	</script>
+	<script src="/js/user-form.js" th:src="@{/js/user-form.js}"></script>
 </body>
 </html>

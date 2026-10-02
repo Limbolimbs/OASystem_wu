@@ -26,9 +26,12 @@
 				<a class="nav-item active" th:href="@{/users}" aria-current="page">
 					<span class="nav-icon">HR</span><span>従業員情報管理</span>
 				</a>
-				<span class="nav-item disabled" aria-disabled="true">
-					<span class="nav-icon">LV</span><span>休暇申請・承認</span>
-				</span>
+				<a class="nav-item" th:href="@{/attendance}">
+					<span class="nav-icon">AT</span><span>勤怠管理</span>
+				</a>
+				<a class="nav-item" th:href="@{/attendance/manage}">
+					<span class="nav-icon">RQ</span><span>勤怠申請・承認</span>
+				</a>
 				<span class="nav-item disabled" aria-disabled="true">
 					<span class="nav-icon">NT</span><span>お知らせ管理</span>
 				</span>
@@ -70,6 +73,12 @@
 						<span>＋</span><span>新規従業員を登録</span>
 					</a>
 				</section>
+
+				<div class="alert alert-success" th:if="${successMessage}" role="status"
+					th:text="${successMessage}"></div>
+
+				<div class="alert alert-error" th:if="${errorMessage}" role="alert"
+					th:text="${errorMessage}"></div>
 
 				<section class="overview-row" aria-label="従業員情報概要">
 					<article class="summary-card">
@@ -116,7 +125,10 @@
 									<th>氏名</th>
 									<th>部署</th>
 									<th>役割</th>
+									<th>登録日時</th>
+									<th>更新日時</th>
 									<th>状態</th>
+									<th>操作</th>
 								</tr>
 							</thead>
 
@@ -137,18 +149,53 @@
 									</td>
 									<td>
 										<span class="role-badge"
-											th:classappend="${user.role == 'ADMIN' ? 'role-admin' : 'role-employee'}"
-											th:text="${user.role == 'ADMIN' ? '管理者' : '一般社員'}">一般社員</span>
+											th:classappend="${user.role == 'ADMIN' ? 'role-admin' : user.role == 'GENERAL_AFFAIRS' ? 'role-general-affairs' : 'role-employee'}"
+											th:text="${user.role == 'ADMIN' ? '管理者' : user.role == 'GENERAL_AFFAIRS' ? '総務担当' : '一般社員'}">一般社員</span>
 									</td>
+									<td class="date-cell"
+										th:text="${user.createdAt != null ? #strings.replace(user.createdAt.toString(), 'T', ' ') : '-'}">-</td>
+									<td class="date-cell"
+										th:text="${user.updatedAt != null ? #strings.replace(user.updatedAt.toString(), 'T', ' ') : '-'}">-</td>
 									<td>
 										<span class="status-badge"
 											th:classappend="${user.status == 1 ? 'status-active' : 'status-inactive'}"
 											th:text="${user.status == 1 ? '有効' : '無効'}">有効</span>
 									</td>
+									<td>
+										<div class="row-actions">
+											<form class="action-form" th:if="${session.loginUserId != user.id}"
+												th:action="@{/users/{id}/role(id=${user.id})}" method="post">
+												<select name="role" aria-label="システム権限">
+													<option value="EMPLOYEE" th:selected="${user.role == 'EMPLOYEE'}">一般社員</option>
+													<option value="GENERAL_AFFAIRS" th:selected="${user.role == 'GENERAL_AFFAIRS'}">総務担当</option>
+													<option value="ADMIN" th:selected="${user.role == 'ADMIN'}">管理者</option>
+												</select>
+												<button class="table-action-button" type="submit">権限更新</button>
+											</form>
+											<form class="action-form js-confirm-form"
+												th:if="${user.status == 1 and session.loginUserId != user.id}"
+												th:action="@{/users/{id}/deactivate(id=${user.id})}"
+												data-confirm-message="このユーザーを無効化しますか？"
+												method="post">
+												<button class="table-action-button action-danger" type="submit">無効化</button>
+											</form>
+
+											<form class="action-form js-confirm-form"
+												th:if="${user.status == 0}"
+												th:action="@{/users/{id}/activate(id=${user.id})}"
+												data-confirm-message="このユーザーを有効化しますか？"
+												method="post">
+												<button class="table-action-button action-success" type="submit">有効化</button>
+											</form>
+
+											<span class="current-user-note"
+												th:if="${session.loginUserId == user.id}">ログイン中</span>
+										</div>
+									</td>
 								</tr>
 
 								<tr th:if="${#lists.isEmpty(users)}">
-									<td class="empty-state" colspan="6">登録されている従業員はいません。</td>
+									<td class="empty-state" colspan="9">登録されている従業員はいません。</td>
 								</tr>
 							</tbody>
 						</table>
@@ -164,41 +211,6 @@
 		</section>
 	</div>
 
-	<script>
-		function updateClock() {
-			const now = new Date();
-			const date = new Intl.DateTimeFormat("ja-JP", {
-				year: "numeric", month: "long", day: "numeric", weekday: "short"
-			}).format(now);
-			document.getElementById("currentTime").textContent =
-				date + " " + now.toLocaleTimeString("ja-JP", { hour12: false });
-		}
-
-		const searchInput = document.getElementById("employeeSearch");
-		const employeeRows = Array.from(document.querySelectorAll(".employee-row"));
-		const visibleCount = document.getElementById("visibleCount");
-		const noSearchResult = document.getElementById("noSearchResult");
-
-		searchInput.addEventListener("input", function () {
-			const keyword = this.value.trim().toLowerCase();
-			let count = 0;
-
-			employeeRows.forEach(function (row) {
-				const text = [row.dataset.username, row.dataset.realname,
-					row.dataset.department, row.dataset.role].join(" ").toLowerCase();
-				const matched = text.includes(keyword);
-				row.style.display = matched ? "" : "none";
-				if (matched) count++;
-			});
-
-			visibleCount.textContent = count;
-			noSearchResult.style.display = employeeRows.length > 0 && count === 0 ? "block" : "none";
-		});
-
-		updateClock();
-		document.getElementById("lastUpdated").textContent =
-			new Date().toLocaleTimeString("ja-JP", { hour12: false });
-		setInterval(updateClock, 1000);
-	</script>
+	<script src="/js/users.js" th:src="@{/js/users.js}"></script>
 </body>
 </html>

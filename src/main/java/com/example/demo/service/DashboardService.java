@@ -89,8 +89,8 @@ public class DashboardService {
 		summary.put("totalOrders", totalOrders);
 		summary.put("totalCustomers", totalCustomers);
 		
-		//sys_user表中的用户数
-		summary.put("employeeCount", userRepository.count());
+		// 有効ユーザー数
+		summary.put("employeeCount", userRepository.countByStatus(1));
 		
 		summary.put("salesGrowth", Math.round(salesGrowth * 10.0) / 10.0);
 		

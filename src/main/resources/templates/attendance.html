@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>勤怠管理 | 企業OAシステム</title>
+    <link rel="stylesheet" href="/css/users.css" th:href="@{/css/users.css}">
+    <link rel="stylesheet" href="/css/attendance.css" th:href="@{/css/attendance.css}">
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-mark">OA</div>
+            <div>
+                <p class="brand-name">企業OAシステム</p>
+                <p class="brand-subtitle">社内ポータル</p>
+            </div>
+        </div>
+
+        <p class="menu-label">メインメニュー</p>
+        <nav class="nav-list" aria-label="メインメニュー">
+            <a class="nav-item" th:if="${admin}" th:href="@{/home}">
+                <span class="nav-icon">HM</span><span>ホーム</span>
+            </a>
+            <a class="nav-item" th:if="${admin}" th:href="@{/users}">
+                <span class="nav-icon">HR</span><span>従業員情報管理</span>
+            </a>
+            <a class="nav-item active" th:href="@{/attendance}" aria-current="page">
+                <span class="nav-icon">AT</span><span>勤怠管理</span>
+            </a>
+            <a class="nav-item" th:href="@{/attendance/manage}">
+                <span class="nav-icon">RQ</span><span>勤怠申請・承認</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-bottom">
+            <a class="logout-button" th:href="@{/logout}">
+                <span class="nav-icon">EX</span><span>ログアウト</span>
+            </a>
+        </div>
+    </aside>
+
+    <section class="main-area">
+        <header class="topbar">
+            <div>
+                <p class="topbar-title">勤怠管理</p>
+                <p class="current-time" id="currentTime">--</p>
+            </div>
+            <div class="login-user">
+                <div class="user-avatar">U</div>
+                <div>
+                    <p class="login-caption">ログイン中</p>
+                    <p class="login-name" th:text="${user.realName}">社内ユーザー</p>
+                </div>
+            </div>
+        </header>
+
+        <main class="content">
+            <section class="page-hero">
+                <div>
+                    <p class="eyebrow">勤怠管理</p>
+                    <h1>勤怠管理</h1>
+                    <p class="hero-description">出退勤・休憩の打刻、勤務状態の確認ができます。</p>
+                </div>
+                <div class="hero-actions">
+                    <span class="attendance-date" th:text="${today}">2026-09-28</span>
+                    <a class="attendance-date" th:href="@{/attendance/history}">勤怠履歴へ →</a>
+                    <a class="attendance-date" th:href="@{/attendance/manage}">申請・承認へ →</a>
+                </div>
+            </section>
+
+            <div class="alert alert-success" th:if="${successMessage}" role="status"
+                 th:text="${successMessage}"></div>
+            <div class="alert alert-error" th:if="${errorMessage}" role="alert"
+                 th:text="${errorMessage}"></div>
+
+            <section class="attendance-overview" aria-label="本日の勤怠">
+                <article class="attendance-card">
+                    <p class="attendance-label">本日の出勤</p>
+                    <p class="attendance-value"
+                       th:text="${todayRecord != null ? #strings.replace(todayRecord.clockInAt.toString(), 'T', ' ') : '未打刻'}">未打刻</p>
+                    <form th:action="@{/attendance/clock-in}" method="post">
+                        <button class="attendance-button clock-in" type="submit"
+                                th:disabled="${todayRecord != null}">出勤を打刻</button>
+                    </form>
+                </article>
+
+                <article class="attendance-card">
+                    <p class="attendance-label">現在の勤務の退勤</p>
+                    <p class="attendance-value"
+                       th:text="${todayRecord != null and todayRecord.clockOutAt != null ? #strings.replace(todayRecord.clockOutAt.toString(), 'T', ' ') : '未打刻'}">未打刻</p>
+                    <form th:action="@{/attendance/clock-out}" method="post">
+                        <button class="attendance-button clock-out" type="submit"
+                                th:disabled="${openRecord == null or openBreak != null}">退勤を打刻</button>
+                    </form>
+                </article>
+                <article class="attendance-card">
+                    <p class="attendance-label">休憩</p>
+                    <p class="attendance-value" th:text="${openBreak != null ? '休憩中' : '勤務中 / 未出勤'}">未出勤</p>
+                    <div class="attendance-actions">
+                        <form th:action="@{/attendance/break-start}" method="post">
+                            <button class="attendance-button clock-in" type="submit"
+                                    th:disabled="${openRecord == null or openBreak != null}">休憩開始</button>
+                        </form>
+                        <form th:action="@{/attendance/break-end}" method="post">
+                            <button class="attendance-button clock-out" type="submit"
+                                    th:disabled="${openBreak == null}">休憩終了</button>
+                        </form>
+                    </div>
+                </article>
+            </section>
+
+            <section class="table-panel attendance-records">
+                <div class="table-toolbar attendance-toolbar">
+                    <div class="table-title">
+                        <h2 th:text="${reviewer ? '全従業員の勤怠状況' : '自分の勤怠状況'}">勤怠状況</h2>
+                        <p th:text="${reviewer ? '指定日の予定と打刻を表示します。' : '直近30日間の予定と打刻を表示します。'}">
+                            最近の記録を表示します。
+                        </p>
+                    </div>
+
+                    <form class="attendance-filter" th:action="@{/attendance}" method="get">
+                        <label for="workDate">勤務日</label>
+                        <input id="workDate" name="date" type="date" th:value="${selectedDate}" required>
+                        <button type="submit">検索</button>
+                        <a th:if="${!reviewer}" th:href="@{/attendance}">直近30日</a>
+                    </form>
+                </div>
+
+                <div class="table-scroll">
+                    <table class="attendance-table">
+                        <thead>
+                        <tr>
+                            <th>勤務日</th>
+                            <th th:if="${reviewer}">従業員</th>
+                            <th>予定</th>
+                            <th>勤務形態</th>
+                            <th>出勤時刻</th>
+                            <th>退勤時刻</th>
+                            <th>休憩 / 実働</th>
+                            <th>状態</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="row : ${rows}">
+                            <td th:text="${row.workDate}">2026-09-28</td>
+                            <td th:if="${reviewer}" th:text="${row.realName}">氏名</td>
+                            <td th:text="${row.statuses.contains('在籍外') ? '在籍外' : row.schedule.dayType.label}">勤務日</td>
+                            <td th:text="${row.schedule.workMode.label}">出社</td>
+                            <td th:text="${row.clockInAt != null ? #strings.replace(row.clockInAt.toString(), 'T', ' ') : '-'}">--</td>
+                            <td th:text="${row.clockOutAt != null ? #strings.replace(row.clockOutAt.toString(), 'T', ' ') : '-'}">--</td>
+                            <td th:text="${row.breakMinutes + '分 / ' + row.workedMinutes + '分'}">--</td>
+                            <td><span class="attendance-status" th:text="${row.statusText}">状態</span></td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(rows)}">
+                            <td class="empty-state" th:colspan="${reviewer ? 8 : 7}">該当する勤怠記録はありません。</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <nav class="attendance-pages" th:if="${reviewer}" aria-label="ページ移動">
+                    <a th:if="${adminRows.hasPrevious()}" th:href="@{/attendance(date=${selectedDate},page=${page - 1})}">前へ</a>
+                    <span th:text="${(page + 1) + ' / ' + adminRows.totalPages + ' ページ'}">1 ページ</span>
+                    <a th:if="${adminRows.hasNext()}" th:href="@{/attendance(date=${selectedDate},page=${page + 1})}">次へ</a>
+                </nav>
+            </section>
+        </main>
+    </section>
+</div>
+
+<script src="/js/attendance.js" th:src="@{/js/attendance.js}"></script>
+</body>
+</html>
