@@ -163,6 +163,27 @@ a { color: inherit; text-decoration: none; }
 }
 .primary-button:hover { transform: translateY(-2px); box-shadow: 0 16px 30px rgba(5,26,48,.24); }
 
+.alert {
+	margin-top: 18px;
+	padding: 13px 16px;
+	border: 1px solid transparent;
+	border-radius: 10px;
+	font-size: 12px;
+	font-weight: 700;
+}
+
+.alert-success {
+	border-color: #a7f3d0;
+	background: #ecfdf5;
+	color: #047857;
+}
+
+.alert-error {
+	border-color: #fecaca;
+	background: #fef2f2;
+	color: #b91c1c;
+}
+
 .overview-row { display: grid; grid-template-columns: minmax(260px, 350px) 1fr; gap: 18px; margin: 22px 0; }
 .summary-card, .guide-card, .table-panel { border: 1px solid #dbe4ed; background: #fff; box-shadow: 0 10px 30px rgba(29,55,86,.06); }
 .summary-card, .guide-card { display: flex; min-height: 112px; align-items: center; border-radius: 14px; }
@@ -279,6 +300,28 @@ tbody tr:last-child td { border-bottom: 0; }
 .status-active::before { background: #10b981; }
 .status-inactive { background: #fee2e2; color: #dc2626; }
 .status-inactive::before { background: #ef4444; }
+.date-cell { color: #607590; font-size: 11px; white-space: nowrap; }
+.row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 82px; }
+.action-form { margin: 0; }
+.action-form select { min-height: 32px; padding: 0 6px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #173454; font: inherit; font-size: 11px; }
+.role-general-affairs { background: #e0f2fe; color: #0369a1; }
+.table-action-button {
+	min-height: 32px;
+	padding: 0 11px;
+	border: 1px solid transparent;
+	border-radius: 8px;
+	font-family: inherit;
+	font-size: 11px;
+	font-weight: 800;
+	cursor: pointer;
+	transition: .18s ease;
+}
+.table-action-button:hover { transform: translateY(-1px); }
+.action-danger { border-color: #fecaca; background: #fff1f2; color: #be123c; }
+.action-danger:hover { background: #ffe4e6; }
+.action-success { border-color: #a7f3d0; background: #ecfdf5; color: #047857; }
+.action-success:hover { background: #d1fae5; }
+.current-user-note { color: #64748b; font-size: 10px; font-weight: 800; white-space: nowrap; }
 .empty-state { padding: 54px 20px; color: var(--slate-500); text-align: center; }
 .no-search-result { display: none; padding: 48px 20px; color: var(--slate-500); font-size: 13px; text-align: center; }
 .table-footer {

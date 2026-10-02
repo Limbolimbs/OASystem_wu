@@ -3,29 +3,47 @@ package com.example.demo.controller;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 
+import com.example.demo.entity.User;
+import com.example.demo.service.UserService;
+
 import jakarta.servlet.http.HttpSession;
 
 
 
 @Controller
 public class HomeController {
-	
-	//首次进入，登陆界面
+	private final UserService userService;
+
+	public HomeController(UserService userService) {
+		this.userService = userService;
+	}
+
+	// 初回アクセス時にログイン画面を表示する
 	@GetMapping("/")
 	public String loginPage() {
 		return "log-in";
 	}
 	
-	//登陆成功后进入主页
+	// ログイン成功後にホーム画面を表示する
     @GetMapping("/home")
     public String homePage(HttpSession session) {
-    	
-    	//没有登陆成功不允许直接进入主页
-    	if(session.getAttribute("loginUser")==null) {
-    		return "redirect:/";
-    	}
-    	
-    	return "home";
+		// ユーザーの有効状態と権限を毎回確認する
+		Object userId = session.getAttribute("loginUserId");
+		if (!(userId instanceof Long id)) {
+			return "redirect:/";
+		}
+
+		User user = userService.findById(id).orElse(null);
+		if (user == null || !Integer.valueOf(1).equals(user.getStatus())) {
+			session.invalidate();
+			return "redirect:/";
+		}
+
+		if (!"ADMIN".equals(user.getRole())) {
+			return "redirect:/attendance";
+		}
+
+		return "home";
     }
     
     @GetMapping("/logout")

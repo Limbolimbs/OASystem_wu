@@ -14,11 +14,11 @@
 //    		Object handler) throws Exception{
 //    	HttpSession session = request.getSession(false);
 //    	
-//    	//已经登陆，允许访问
+//    	// ログイン済みの場合はアクセスを許可する
 //    	if(session != null && session.getAttribute("loginUser") != null) {
 //    		return true;
 //    	}
-//    	//没有登陆，返回登陆界面
+//    	// 未ログインの場合はログイン画面へ戻す
 //    	response.sendRedirect(request.getContextPath() + "/");
 //    	return false;
 //    }

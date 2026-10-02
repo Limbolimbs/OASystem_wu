@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>勤怠申請・承認 | 企業OAシステム</title>
+    <link rel="stylesheet" th:href="@{/css/users.css}" href="/css/users.css">
+    <link rel="stylesheet" th:href="@{/css/attendance-manage.css}" href="/css/attendance-manage.css">
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand"><div class="brand-mark">OA</div><div>
+            <p class="brand-name">企業OAシステム</p><p class="brand-subtitle">社内ポータル</p>
+        </div></div>
+        <p class="menu-label">メインメニュー</p>
+        <nav class="nav-list" aria-label="メインメニュー">
+            <a class="nav-item" th:if="${admin}" th:href="@{/home}"><span class="nav-icon">HM</span>ホーム</a>
+            <a class="nav-item" th:if="${admin}" th:href="@{/users}"><span class="nav-icon">HR</span>従業員情報管理</a>
+            <a class="nav-item" th:href="@{/attendance}"><span class="nav-icon">AT</span>勤怠管理</a>
+            <a class="nav-item active" th:href="@{/attendance/manage}" aria-current="page"><span class="nav-icon">RQ</span>勤怠申請・承認</a>
+        </nav>
+        <div class="sidebar-bottom"><a class="logout-button" th:href="@{/logout}"><span class="nav-icon">EX</span>ログアウト</a></div>
+    </aside>
+    <section class="main-area">
+        <header class="topbar">
+            <div><p class="topbar-title">勤怠申請・承認</p><p class="current-time" id="currentTime">--</p></div>
+            <div class="login-user"><div class="user-avatar">U</div><div>
+                <p class="login-caption">ログイン中</p><p class="login-name" th:text="${user.realName}">氏名</p>
+            </div></div>
+        </header>
+        <main class="content">
+            <section class="page-hero">
+                <div><p class="eyebrow">ATTENDANCE WORKFLOW</p>
+                    <h1>勤怠申請・承認</h1>
+                    <p class="hero-description">打刻修正・外勤・在宅・残業・休日出勤・休暇を申請できます。</p>
+                </div>
+            </section>
+            <div class="alert alert-success" th:if="${successMessage}" role="status" th:text="${successMessage}"></div>
+            <div class="alert alert-error" th:if="${errorMessage}" role="alert" th:text="${errorMessage}"></div>
+
+            <nav class="manage-jump" aria-label="ページ内メニュー">
+                <a href="#request">新規申請</a><a href="#history">自分の申請履歴</a>
+                <a th:if="${reviewer}" href="#review">承認待ち</a>
+                <a th:if="${reviewer}" href="#reviewed">審査履歴</a>
+                <a th:if="${admin}" href="#rules">勤務ルール</a>
+                <a th:if="${admin}" href="#schedules">個別勤務予定</a>
+                <a th:if="${admin}" href="#holidays">会社休日</a>
+            </nav>
+
+            <section class="manage-panel" id="request">
+                <div class="section-heading"><div><p class="section-kicker">EMPLOYEE REQUEST</p><h2>新規申請</h2></div>
+                    <span>本人の申請のみ受け付けます</span></div>
+                <form class="manage-form" th:action="@{/attendance/manage/requests}" method="post">
+                    <label>申請種類
+                        <select name="type" id="requestType" required>
+                            <option value="CORRECTION">打刻修正・未打刻補正</option>
+                            <option value="FIELD">外勤</option>
+                            <option value="REMOTE">在宅勤務</option>
+                            <option value="OVERTIME">残業</option>
+                            <option value="HOLIDAY_WORK">休日出勤</option>
+                            <option value="LEAVE">休暇</option>
+                        </select>
+                    </label>
+                    <label>開始日<input name="startDate" type="date" required></label>
+                    <label>終了日<input name="endDate" type="date" required></label>
+                    <label class="correction-field">修正後の出勤日時（任意）<input name="clockInAt" type="datetime-local"></label>
+                    <label class="correction-field">修正後の退勤日時（任意）<input name="clockOutAt" type="datetime-local"></label>
+                    <label class="overtime-field">残業の予定終了日時<input name="overtimeEndAt" type="datetime-local"></label>
+                    <label class="form-wide">申請理由<textarea name="reason" maxlength="1000" rows="3" required placeholder="具体的な理由を入力してください"></textarea></label>
+                    <p class="form-help form-wide">打刻修正・残業は1日単位です。その他の申請は最大31日間です。承認前は勤務予定・打刻記録に反映されません。</p>
+                    <button class="manage-button form-wide" type="submit">申請する</button>
+                </form>
+            </section>
+
+            <section class="manage-panel" id="history">
+                <div class="section-heading"><div><p class="section-kicker">MY REQUESTS</p><h2>自分の申請履歴</h2></div></div>
+                <div class="table-scroll"><table class="manage-table"><thead><tr>
+                    <th>ID</th><th>申請種類</th><th>対象期間</th><th>理由</th><th>状態</th><th>審査者</th><th>操作</th>
+                </tr></thead><tbody>
+                <tr th:each="item : ${ownRequests.content}">
+                    <td th:text="${item.id}">1</td>
+                    <td th:text="${item.requestType.label}">打刻修正</td>
+                    <td th:text="${item.startDate + ' ～ ' + item.endDate}">期間</td>
+                    <td class="reason-cell" th:text="${item.reason}">理由</td>
+                    <td th:text="${item.status.label}">審査中</td>
+                    <td th:text="${item.reviewer != null ? item.reviewer.realName : '-'}">-</td>
+                    <td><form th:if="${item.status.name() == 'PENDING'}" th:action="@{/attendance/manage/requests/{id}/cancel(id=${item.id})}" method="post">
+                        <button class="manage-button subtle" type="submit">取り下げ</button></form>
+                        <span th:if="${item.status.name() != 'PENDING'}" th:text="${item.reviewComment != null ? item.reviewComment : '-'}">-</span></td>
+                </tr>
+                <tr th:if="${ownRequests.empty}"><td colspan="7" class="empty-state">申請履歴はありません。</td></tr>
+                </tbody></table></div>
+                <div class="pagination">
+                    <a th:if="${ownPage > 0}" th:href="@{/attendance/manage(ownPage=${ownPage - 1})}">前へ</a>
+                    <span th:text="${(ownPage + 1) + ' / ' + ownRequests.totalPages + ' ページ'}">1 ページ</span>
+                    <a th:if="${ownRequests.hasNext()}" th:href="@{/attendance/manage(ownPage=${ownPage + 1})}">次へ</a>
+                </div>
+            </section>
+
+            <section class="manage-panel" id="review" th:if="${reviewer}">
+                <div class="section-heading"><div><p class="section-kicker">APPROVAL QUEUE</p><h2>承認待ち</h2></div>
+                    <span>自分の申請は承認できません</span></div>
+                <div class="table-scroll"><table class="manage-table"><thead><tr>
+                    <th>ID</th><th>申請者</th><th>種類</th><th>期間</th><th>修正/残業日時</th><th>理由</th><th>審査</th>
+                </tr></thead><tbody>
+                <tr th:each="item : ${reviewRequests.content}">
+                    <td th:text="${item.id}">1</td><td th:text="${item.user.realName}">氏名</td>
+                    <td th:text="${item.requestType.label}">種類</td>
+                    <td th:text="${item.startDate + ' ～ ' + item.endDate}">期間</td>
+                    <td><span th:text="${item.requestedClockInAt}"></span><br>
+                        <span th:text="${item.requestedClockOutAt}"></span><br>
+                        <span th:text="${item.requestedOvertimeEndAt}"></span></td>
+                    <td class="reason-cell" th:text="${item.reason}">理由</td>
+                    <td>
+                        <span th:if="${item.user.id == user.id}">本人の申請</span>
+                        <form th:if="${item.user.id != user.id}" class="review-form"
+                              th:action="@{/attendance/manage/review/{id}/approve(id=${item.id})}" method="post">
+                            <input name="comment" type="text" maxlength="1000" placeholder="承認コメント（任意）">
+                            <button class="manage-button" type="submit">承認</button>
+                        </form>
+                        <form th:if="${item.user.id != user.id}" class="review-form"
+                              th:action="@{/attendance/manage/review/{id}/reject(id=${item.id})}" method="post">
+                            <input name="comment" type="text" maxlength="1000" placeholder="差し戻し理由" required>
+                            <button class="manage-button danger" type="submit">差し戻し</button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${reviewRequests.empty}"><td colspan="7" class="empty-state">承認待ちの申請はありません。</td></tr>
+                </tbody></table></div>
+                <div class="pagination">
+                    <a th:if="${reviewPage > 0}" th:href="@{/attendance/manage(reviewPage=${reviewPage - 1})}">前へ</a>
+                    <span th:text="${(reviewPage + 1) + ' / ' + reviewRequests.totalPages + ' ページ'}">1 ページ</span>
+                    <a th:if="${reviewRequests.hasNext()}" th:href="@{/attendance/manage(reviewPage=${reviewPage + 1})}">次へ</a>
+                </div>
+            </section>
+
+            <section class="manage-panel" id="reviewed" th:if="${reviewer}">
+                <div class="section-heading"><div><p class="section-kicker">REVIEW HISTORY</p><h2>自分の審査履歴</h2></div></div>
+                <div class="table-scroll"><table class="manage-table"><thead><tr>
+                    <th>ID</th><th>申請者</th><th>種類</th><th>期間</th><th>結果</th><th>コメント</th><th>審査日時</th>
+                </tr></thead><tbody>
+                <tr th:each="item : ${reviewedRequests.content}">
+                    <td th:text="${item.id}">1</td><td th:text="${item.user.realName}">氏名</td>
+                    <td th:text="${item.requestType.label}">種類</td>
+                    <td th:text="${item.startDate + ' ～ ' + item.endDate}">期間</td>
+                    <td th:text="${item.status.label}">承認済み</td>
+                    <td class="reason-cell" th:text="${item.reviewComment != null ? item.reviewComment : '-'}">-</td>
+                    <td th:text="${item.reviewedAt}">-</td>
+                </tr>
+                <tr th:if="${reviewedRequests.empty}"><td colspan="7" class="empty-state">審査履歴はありません。</td></tr>
+                </tbody></table></div>
+                <div class="pagination">
+                    <a th:if="${reviewedPage > 0}" th:href="@{/attendance/manage(reviewedPage=${reviewedPage - 1})}">前へ</a>
+                    <span th:text="${(reviewedPage + 1) + ' / ' + reviewedRequests.totalPages + ' ページ'}">1 ページ</span>
+                    <a th:if="${reviewedRequests.hasNext()}" th:href="@{/attendance/manage(reviewedPage=${reviewedPage + 1})}">次へ</a>
+                </div>
+            </section>
+
+            <section class="manage-panel" id="rules" th:if="${admin}">
+                <div class="section-heading"><div><p class="section-kicker">WORK RULES</p><h2>会社共通の勤務ルール</h2></div></div>
+                <form class="manage-form" th:action="@{/attendance/manage/policy}" method="post">
+                    <label>標準始業時刻<input name="standardStart" type="time" th:value="${policy.standardStart}" required></label>
+                    <label>標準終業時刻<input name="standardEnd" type="time" th:value="${policy.standardEnd}" required></label>
+                    <label>所定休憩（分）<input name="breakMinutes" type="number" min="0" max="720" th:value="${policy.breakMinutes}" required></label>
+                    <label>遅刻猶予（分）<input name="lateGraceMinutes" type="number" min="0" max="120" th:value="${policy.lateGraceMinutes}" required></label>
+                    <label>早退猶予（分）<input name="earlyGraceMinutes" type="number" min="0" max="120" th:value="${policy.earlyGraceMinutes}" required></label>
+                    <label>残業判定しきい値（分）<input name="overtimeThresholdMinutes" type="number" min="0" max="180" th:value="${policy.overtimeThresholdMinutes}" required></label>
+                    <fieldset class="weekday-fieldset form-wide"><legend>標準勤務曜日</legend><div class="weekday-options">
+                        <label><input type="checkbox" name="workDay" value="1" th:checked="${workdayFlags.get('mon')}">月</label>
+                        <label><input type="checkbox" name="workDay" value="2" th:checked="${workdayFlags.get('tue')}">火</label>
+                        <label><input type="checkbox" name="workDay" value="4" th:checked="${workdayFlags.get('wed')}">水</label>
+                        <label><input type="checkbox" name="workDay" value="8" th:checked="${workdayFlags.get('thu')}">木</label>
+                        <label><input type="checkbox" name="workDay" value="16" th:checked="${workdayFlags.get('fri')}">金</label>
+                        <label><input type="checkbox" name="workDay" value="32" th:checked="${workdayFlags.get('sat')}">土</label>
+                        <label><input type="checkbox" name="workDay" value="64" th:checked="${workdayFlags.get('sun')}">日</label>
+                    </div></fieldset>
+                    <p class="form-help form-wide">変更内容は翌日から適用されます。個別勤務予定は共通ルールより優先されます。夜勤は終業時刻を始業時刻より早く設定できます。</p>
+                    <button class="manage-button form-wide" type="submit">勤務ルールを保存</button>
+                </form>
+            </section>
+
+            <section class="manage-panel" id="schedules" th:if="${admin}">
+                <div class="section-heading"><div><p class="section-kicker">SHIFT PLAN</p><h2>個別勤務予定</h2></div></div>
+                <form class="manage-form" th:action="@{/attendance/manage/schedules}" method="post">
+                    <label>従業員<select name="userId" required><option th:each="employee : ${employees}" th:value="${employee.id}" th:text="${employee.realName + '（' + employee.username + '）'}">従業員</option></select></label>
+                    <label>勤務日<input name="workDate" type="date" required></label>
+                    <label>日種別<select name="dayType" required><option value="WORKDAY">勤務日</option><option value="REST_DAY">所定休日</option><option value="HOLIDAY">会社休日</option><option value="LEAVE">休暇</option></select></label>
+                    <label>勤務形態<select name="workMode" required><option value="OFFICE">出社</option><option value="FIELD">外勤</option><option value="REMOTE">在宅勤務</option></select></label>
+                    <label>予定始業日時<input name="plannedStartAt" type="datetime-local"></label>
+                    <label>予定終業日時<input name="plannedEndAt" type="datetime-local"></label>
+                    <label>所定休憩（分）<input name="breakMinutes" type="number" min="0" max="720" value="60" required></label>
+                    <p class="form-help form-wide">夜勤は予定終業日時に翌日を指定します。非勤務日は開始・終了日時を空欄にしてください。</p>
+                    <button class="manage-button form-wide" type="submit">個別勤務予定を保存</button>
+                </form>
+                <form class="manage-form schedule-search" th:action="@{/attendance/manage}" method="get">
+                    <label>表示する勤務日<input name="scheduleDate" type="date" th:value="${scheduleDate}" required></label>
+                    <button class="manage-button" type="submit">予定を検索</button>
+                </form>
+                <div class="table-scroll"><table class="manage-table"><thead><tr>
+                    <th>従業員</th><th>勤務日</th><th>日種別</th><th>勤務形態</th><th>予定始業</th><th>予定終業</th><th>操作</th>
+                </tr></thead><tbody>
+                <tr th:each="item : ${schedules}">
+                    <td th:text="${item.user.realName}">氏名</td><td th:text="${item.workDate}">勤務日</td>
+                    <td th:text="${item.dayType.label}">日種別</td><td th:text="${item.workMode.label}">勤務形態</td>
+                    <td th:text="${item.plannedStartAt}">-</td><td th:text="${item.plannedEndAt}">-</td>
+                    <td><form th:action="@{/attendance/manage/schedules/{id}/delete(id=${item.id})}" method="post">
+                        <button class="manage-button danger" type="submit">個別予定を削除</button></form></td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(schedules)}"><td colspan="7" class="empty-state">指定日の個別勤務予定はありません。</td></tr>
+                </tbody></table></div>
+            </section>
+
+            <section class="manage-panel" id="holidays" th:if="${admin}">
+                <div class="section-heading"><div><p class="section-kicker">COMPANY HOLIDAYS</p><h2>会社休日</h2></div></div>
+                <form class="manage-form" th:action="@{/attendance/manage/holidays}" method="post">
+                    <label>日付<input name="date" type="date" required></label>
+                    <label>休日名称<input name="name" type="text" maxlength="100" required placeholder="例：創立記念日"></label>
+                    <button class="manage-button" type="submit">休日を登録</button>
+                </form>
+                <ul class="holiday-list"><li th:each="holiday : ${holidays}">
+                    <span th:text="${holiday.holidayDate + '　' + holiday.name}">休日</span>
+                    <form th:action="@{/attendance/manage/holidays/{date}/delete(date=${holiday.holidayDate})}" method="post">
+                        <button class="manage-button subtle" type="submit">削除</button></form>
+                </li></ul>
+            </section>
+        </main>
+    </section>
+</div>
+<script th:src="@{/js/attendance-manage.js}" src="/js/attendance-manage.js"></script>
+</body>
+</html>
