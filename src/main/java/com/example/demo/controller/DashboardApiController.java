@@ -34,7 +34,7 @@ public class DashboardApiController {
 		}
 
 		User user = userService.findById(id).orElse(null);
-		if (user == null || !Integer.valueOf(1).equals(user.getStatus())) {
+		if (user == null || !user.isActive()) {
 			session.invalidate();
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 		}

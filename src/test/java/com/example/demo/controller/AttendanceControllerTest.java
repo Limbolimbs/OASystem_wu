@@ -53,7 +53,7 @@ class AttendanceControllerTest {
         when(dayService.evaluate(user, date)).thenReturn(org.mockito.Mockito.mock(AttendanceDayView.class));
         ExtendedModelMap model = new ExtendedModelMap();
 
-        assertEquals("attendance", attendanceController.index(date, 0, session, model));
+        assertEquals("attendance", attendanceController.index(date, 0, null, session, model));
         assertFalse((Boolean) model.get("reviewer"));
         verify(dayService).evaluate(user, date);
         verify(dayService, never()).allActiveForDate(date, 0);
@@ -68,7 +68,7 @@ class AttendanceControllerTest {
         when(dayService.allActiveForDate(date, 0)).thenReturn(new PageImpl<>(List.of()));
         ExtendedModelMap model = new ExtendedModelMap();
 
-        assertEquals("attendance", attendanceController.index(date, 0, session, model));
+        assertEquals("attendance", attendanceController.index(date, 0, null, session, model));
         assertTrue((Boolean) model.get("reviewer"));
         verify(dayService).allActiveForDate(date, 0);
         verify(dayService, never()).evaluate(user, date);
@@ -77,6 +77,6 @@ class AttendanceControllerTest {
     @Test
     void missingSessionCannotSeeAttendance() {
         when(accessControl.currentUser(session)).thenReturn(Optional.empty());
-        assertEquals("redirect:/", attendanceController.index(null, 0, session, new ExtendedModelMap()));
+        assertEquals("redirect:/", attendanceController.index(null, 0, null, session, new ExtendedModelMap()));
     }
 }

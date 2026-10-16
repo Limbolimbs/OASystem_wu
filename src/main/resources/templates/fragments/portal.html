@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="feedback">
+        <link rel="stylesheet" href="/css/interaction-feedback.css" th:href="@{/css/interaction-feedback.css}">
+        <script src="/js/interaction-feedback.js" th:src="@{/js/interaction-feedback.js}" defer></script>
+    </th:block>
+    <header class="topbar" th:fragment="header(title, clockId, displayName)">
+        <div class="topbar-heading">
+            <button class="menu-toggle" type="button" data-navigation-toggle aria-controls="portalNavigation" aria-expanded="false" aria-label="メニューを開く">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                <span>メニュー</span>
+            </button>
+            <div>
+                <p class="topbar-title" th:text="${title}">業務画面</p>
+                <p class="current-time" th:id="${clockId}">--</p>
+            </div>
+        </div>
+        <a class="login-user profile-link" th:href="@{/my-page}" aria-label="マイページを開く">
+            <div class="user-avatar" aria-hidden="true">U</div>
+            <div>
+                <p class="login-caption">ログイン中</p>
+                <p class="login-name" th:text="${displayName != null ? displayName : '社内ユーザー'}">社内ユーザー</p>
+            </div>
+        </a>
+    </header>
+</body>
+</html>

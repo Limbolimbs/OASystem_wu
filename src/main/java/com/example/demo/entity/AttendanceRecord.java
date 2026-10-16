@@ -1,8 +1,9 @@
 package com.example.demo.entity;
 
+import com.example.demo.attendance.AttendanceClock;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -25,9 +26,7 @@ import jakarta.persistence.Version;
 }, uniqueConstraints = {
         @UniqueConstraint(name = "uk_attendance_user_work_date", columnNames = {"user_id", "work_date"})
 })
-public class AttendanceRecord {
-
-    private static final ZoneId WORK_ZONE = ZoneId.of("Asia/Tokyo");
+public class AttendanceRecord extends LogicalDeleteEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -40,16 +39,16 @@ public class AttendanceRecord {
     @Column(name = "work_date", nullable = false)
     private LocalDate workDate;
 
-    @Column(name = "clock_in_at", nullable = false)
+    @Column(name = "clock_in_at", nullable = false, columnDefinition = "DATETIME(6)")
     private LocalDateTime clockInAt;
 
-    @Column(name = "clock_out_at")
+    @Column(name = "clock_out_at", columnDefinition = "DATETIME(6)")
     private LocalDateTime clockOutAt;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "DATETIME(6)")
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at", nullable = false)
+    @Column(name = "updated_at", nullable = false, columnDefinition = "DATETIME(6)")
     private LocalDateTime updatedAt;
 
     @Version
@@ -58,14 +57,14 @@ public class AttendanceRecord {
 
     @PrePersist
     public void prePersist() {
-        LocalDateTime now = LocalDateTime.now(WORK_ZONE);
+        LocalDateTime now = AttendanceClock.now();
         createdAt = now;
         updatedAt = now;
     }
 
     @PreUpdate
     public void preUpdate() {
-        updatedAt = LocalDateTime.now(WORK_ZONE);
+        updatedAt = AttendanceClock.now();
     }
 
     public Long getId() { return id; }

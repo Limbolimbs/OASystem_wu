@@ -24,7 +24,7 @@ import jakarta.persistence.Version;
 
 @Entity
 @Table(name = "attendance_request")
-public class AttendanceRequest {
+public class AttendanceRequest extends LogicalDeleteEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -44,13 +44,13 @@ public class AttendanceRequest {
     @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
 
-    @Column(name = "requested_clock_in_at")
+    @Column(name = "requested_clock_in_at", columnDefinition = "DATETIME(6)")
     private LocalDateTime requestedClockInAt;
 
-    @Column(name = "requested_clock_out_at")
+    @Column(name = "requested_clock_out_at", columnDefinition = "DATETIME(6)")
     private LocalDateTime requestedClockOutAt;
 
-    @Column(name = "requested_overtime_end_at")
+    @Column(name = "requested_overtime_end_at", columnDefinition = "DATETIME(6)")
     private LocalDateTime requestedOvertimeEndAt;
 
     @Column(name = "reason", nullable = false, length = 1000)
@@ -67,13 +67,13 @@ public class AttendanceRequest {
     @Column(name = "review_comment", length = 1000)
     private String reviewComment;
 
-    @Column(name = "reviewed_at")
+    @Column(name = "reviewed_at", columnDefinition = "DATETIME(6)")
     private LocalDateTime reviewedAt;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "DATETIME(6)")
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at", nullable = false)
+    @Column(name = "updated_at", nullable = false, columnDefinition = "DATETIME(6)")
     private LocalDateTime updatedAt;
 
     @Version

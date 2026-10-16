@@ -1,62 +1,25 @@
 <!DOCTYPE html>
 <html lang="ja" xmlns:th="http://www.thymeleaf.org">
 <head>
+    <th:block th:replace="~{fragments/security :: csrf}"></th:block>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>勤怠管理 | 企業OAシステム</title>
-    <link rel="stylesheet" href="/css/users.css" th:href="@{/css/users.css}">
+    <link rel="stylesheet" th:href="@{/css/portal-layout.css}" href="/css/portal-layout.css">
+    <link rel="stylesheet" th:href="@{/css/portal-components.css}" href="/css/portal-components.css">
     <link rel="stylesheet" href="/css/attendance.css" th:href="@{/css/attendance.css}">
+    <link rel="stylesheet" href="/css/status-messages.css" th:href="@{/css/status-messages.css}">
+    <link rel="stylesheet" href="/css/message-dialog.css" th:href="@{/css/message-dialog.css}">
+    <th:block th:replace="~{fragments/portal :: feedback}"></th:block>
 </head>
 <body>
 <div class="app-shell">
-    <aside class="sidebar">
-        <div class="brand">
-            <div class="brand-mark">OA</div>
-            <div>
-                <p class="brand-name">企業OAシステム</p>
-                <p class="brand-subtitle">社内ポータル</p>
-            </div>
-        </div>
-
-        <p class="menu-label">メインメニュー</p>
-        <nav class="nav-list" aria-label="メインメニュー">
-            <a class="nav-item" th:if="${admin}" th:href="@{/home}">
-                <span class="nav-icon">HM</span><span>ホーム</span>
-            </a>
-            <a class="nav-item" th:if="${admin}" th:href="@{/users}">
-                <span class="nav-icon">HR</span><span>従業員情報管理</span>
-            </a>
-            <a class="nav-item active" th:href="@{/attendance}" aria-current="page">
-                <span class="nav-icon">AT</span><span>勤怠管理</span>
-            </a>
-            <a class="nav-item" th:href="@{/attendance/manage}">
-                <span class="nav-icon">RQ</span><span>勤怠申請・承認</span>
-            </a>
-        </nav>
-
-        <div class="sidebar-bottom">
-            <a class="logout-button" th:href="@{/logout}">
-                <span class="nav-icon">EX</span><span>ログアウト</span>
-            </a>
-        </div>
-    </aside>
+<aside th:replace="~{fragments/sidebar :: sidebar('attendance', ${admin}, ${salesAccess})}"></aside>
 
     <section class="main-area">
-        <header class="topbar">
-            <div>
-                <p class="topbar-title">勤怠管理</p>
-                <p class="current-time" id="currentTime">--</p>
-            </div>
-            <div class="login-user">
-                <div class="user-avatar">U</div>
-                <div>
-                    <p class="login-caption">ログイン中</p>
-                    <p class="login-name" th:text="${user.realName}">社内ユーザー</p>
-                </div>
-            </div>
-        </header>
+        <header th:replace="~{fragments/portal :: header('勤怠管理', 'currentTime', ${user.realName})}"></header>
 
-        <main class="content">
+        <main class="content" id="mainContent" tabindex="-1">
             <section class="page-hero">
                 <div>
                     <p class="eyebrow">勤怠管理</p>
@@ -75,12 +38,14 @@
             <div class="alert alert-error" th:if="${errorMessage}" role="alert"
                  th:text="${errorMessage}"></div>
 
-            <section class="attendance-overview" aria-label="本日の勤怠">
+            <section class="attendance-overview" aria-label="本日の勤怠" id="attendance-overview"
+                     th:fragment="attendance-overview" data-ajax-region data-ajax-lock="attendance-clock"
+                     th:attr="data-ajax-url=@{/attendance}">
                 <article class="attendance-card">
                     <p class="attendance-label">本日の出勤</p>
                     <p class="attendance-value"
-                       th:text="${todayRecord != null ? #strings.replace(todayRecord.clockInAt.toString(), 'T', ' ') : '未打刻'}">未打刻</p>
-                    <form th:action="@{/attendance/clock-in}" method="post">
+                       th:text="${todayRecord != null ? #temporals.format(todayRecord.clockInAt, 'yyyy-MM-dd HH:mm:ss') : '未打刻'}">未打刻</p>
+                    <form th:action="@{/attendance/clock-in}" method="post" data-ajax data-ajax-targets="attendance-overview attendance-records">
                         <button class="attendance-button clock-in" type="submit"
                                 th:disabled="${todayRecord != null}">出勤を打刻</button>
                     </form>
@@ -89,21 +54,21 @@
                 <article class="attendance-card">
                     <p class="attendance-label">現在の勤務の退勤</p>
                     <p class="attendance-value"
-                       th:text="${todayRecord != null and todayRecord.clockOutAt != null ? #strings.replace(todayRecord.clockOutAt.toString(), 'T', ' ') : '未打刻'}">未打刻</p>
-                    <form th:action="@{/attendance/clock-out}" method="post">
+                       th:text="${todayRecord != null and todayRecord.clockOutAt != null ? #temporals.format(todayRecord.clockOutAt, 'yyyy-MM-dd HH:mm:ss') : '未打刻'}">未打刻</p>
+                    <form th:action="@{/attendance/clock-out}" method="post" data-ajax data-ajax-targets="attendance-overview attendance-records">
                         <button class="attendance-button clock-out" type="submit"
                                 th:disabled="${openRecord == null or openBreak != null}">退勤を打刻</button>
                     </form>
                 </article>
                 <article class="attendance-card">
                     <p class="attendance-label">休憩</p>
-                    <p class="attendance-value" th:text="${openBreak != null ? '休憩中' : '勤務中 / 未出勤'}">未出勤</p>
+                    <p class="attendance-value" th:text="${openBreak != null ? '休憩中' : (todayRecord == null ? '未出勤' : (todayRecord.clockOutAt != null ? '退勤済み' : '勤務中'))}">未出勤</p>
                     <div class="attendance-actions">
-                        <form th:action="@{/attendance/break-start}" method="post">
+                        <form th:action="@{/attendance/break-start}" method="post" data-ajax data-ajax-targets="attendance-overview attendance-records">
                             <button class="attendance-button clock-in" type="submit"
                                     th:disabled="${openRecord == null or openBreak != null}">休憩開始</button>
                         </form>
-                        <form th:action="@{/attendance/break-end}" method="post">
+                        <form th:action="@{/attendance/break-end}" method="post" data-ajax data-ajax-targets="attendance-overview attendance-records">
                             <button class="attendance-button clock-out" type="submit"
                                     th:disabled="${openBreak == null}">休憩終了</button>
                         </form>
@@ -120,14 +85,16 @@
                         </p>
                     </div>
 
-                    <form class="attendance-filter" th:action="@{/attendance}" method="get">
+                    <form class="attendance-filter" th:action="@{/attendance}" method="get" data-ajax data-ajax-targets="attendance-records">
                         <label for="workDate">勤務日</label>
                         <input id="workDate" name="date" type="date" th:value="${selectedDate}" required>
                         <button type="submit">検索</button>
-                        <a th:if="${!reviewer}" th:href="@{/attendance}">直近30日</a>
+                        <a data-ajax-targets="attendance-records" th:if="${!reviewer}" th:href="@{/attendance}">直近30日</a>
                     </form>
                 </div>
 
+                <div id="attendance-records" th:fragment="attendance-records" data-ajax-region
+                     data-ajax-page-param="page" th:attr="data-ajax-url=@{/attendance(date=${reviewer or filtered ? selectedDate : null},page=${page})}">
                 <div class="table-scroll">
                     <table class="attendance-table">
                         <thead>
@@ -148,8 +115,8 @@
                             <td th:if="${reviewer}" th:text="${row.realName}">氏名</td>
                             <td th:text="${row.statuses.contains('在籍外') ? '在籍外' : row.schedule.dayType.label}">勤務日</td>
                             <td th:text="${row.schedule.workMode.label}">出社</td>
-                            <td th:text="${row.clockInAt != null ? #strings.replace(row.clockInAt.toString(), 'T', ' ') : '-'}">--</td>
-                            <td th:text="${row.clockOutAt != null ? #strings.replace(row.clockOutAt.toString(), 'T', ' ') : '-'}">--</td>
+                            <td th:text="${row.clockInAt != null ? #temporals.format(row.clockInAt, 'yyyy-MM-dd HH:mm:ss') : '-'}">--</td>
+                            <td th:text="${row.clockOutAt != null ? #temporals.format(row.clockOutAt, 'yyyy-MM-dd HH:mm:ss') : '-'}">--</td>
                             <td th:text="${row.breakMinutes + '分 / ' + row.workedMinutes + '分'}">--</td>
                             <td><span class="attendance-status" th:text="${row.statusText}">状態</span></td>
                         </tr>
@@ -160,15 +127,21 @@
                     </table>
                 </div>
                 <nav class="attendance-pages" th:if="${reviewer}" aria-label="ページ移動">
-                    <a th:if="${adminRows.hasPrevious()}" th:href="@{/attendance(date=${selectedDate},page=${page - 1})}">前へ</a>
+                    <a data-ajax-targets="attendance-records" th:if="${adminRows.hasPrevious()}" th:href="@{/attendance(date=${selectedDate},page=${page - 1})}">前へ</a>
                     <span th:text="${(page + 1) + ' / ' + adminRows.totalPages + ' ページ'}">1 ページ</span>
-                    <a th:if="${adminRows.hasNext()}" th:href="@{/attendance(date=${selectedDate},page=${page + 1})}">次へ</a>
+                    <a data-ajax-targets="attendance-records" th:if="${adminRows.hasNext()}" th:href="@{/attendance(date=${selectedDate},page=${page + 1})}">次へ</a>
                 </nav>
+                </div>
             </section>
         </main>
     </section>
 </div>
 
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="/js/portal-navigation.js" th:src="@{/js/portal-navigation.js}"></script>
+<script src="/js/request-security.js" th:src="@{/js/request-security.js}"></script>
+<script src="/js/message-dialog.js" th:src="@{/js/message-dialog.js}"></script>
+<script src="/js/page-interactions.js" th:src="@{/js/page-interactions.js}"></script>
 <script src="/js/attendance.js" th:src="@{/js/attendance.js}"></script>
 </body>
 </html>

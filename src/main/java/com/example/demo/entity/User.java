@@ -14,7 +14,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "sys_user")
-public class User {
+public class User extends LogicalDeleteEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -24,7 +24,15 @@ public class User {
     private String username;
 
     @Column(name = "password", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private String password;
+
+    @Column(name = "authentication_version", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private long authenticationVersion;
+
+    public long getAuthenticationVersion() { return authenticationVersion; }
+    public void setAuthenticationVersion(long value) { authenticationVersion = value; }
 
     @Column(name = "real_name", nullable = false)
     private String realName;
@@ -45,20 +53,14 @@ public class User {
     /**
      * 登録日時
      */
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "DATETIME(6)")
     private LocalDateTime createdAt;
 
     /**
      * 更新日時
      */
-    @Column(name = "updated_at", nullable = false)
+    @Column(name = "updated_at", nullable = false, columnDefinition = "DATETIME(6)")
     private LocalDateTime updatedAt;
-
-    /**
-     * 論理削除日時
-     */
-    @Column(name = "deleted_at")
-    private LocalDateTime deletedAt;
 
     /**
      * 新規登録前に日時と状態を設定する
@@ -138,9 +140,19 @@ public class User {
         return status;
     }
 
+    public boolean isActive() { return Integer.valueOf(1).equals(status) && !isDeleted(); }
+
     public void setStatus(Integer status) {
         this.status = status;
+        if (Integer.valueOf(0).equals(status)) super.softDelete();
+        else if (Integer.valueOf(1).equals(status)) super.restore();
     }
+
+    @Override
+    public void softDelete() { super.softDelete(); status = 0; }
+
+    @Override
+    public void restore() { super.restore(); status = 1; }
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
@@ -158,11 +170,4 @@ public class User {
         this.updatedAt = updatedAt;
     }
 
-    public LocalDateTime getDeletedAt() {
-        return deletedAt;
-    }
-
-    public void setDeletedAt(LocalDateTime deletedAt) {
-        this.deletedAt = deletedAt;
-    }
 }

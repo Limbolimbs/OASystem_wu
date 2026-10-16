@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.http.ResponseEntity;
 
 import com.example.demo.entity.User;
 import com.example.demo.security.AccessControlService;
@@ -51,54 +51,71 @@ public class AttendanceController {
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             @RequestParam(defaultValue = "0") int page,
+            @RequestParam(required = false) String fragment,
             HttpSession session,
             Model model) {
 
         Optional<User> activeUser = currentUser(session);
         if (activeUser.isEmpty()) {
+            if (fragment != null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
             return "redirect:/";
         }
 
         User user = activeUser.get();
+        String view = AjaxResult.view("attendance", fragment, "attendance-overview", "attendance-records");
         LocalDate selectedDate = date == null ? attendanceService.today() : date;
         boolean admin = accessControl.isAdmin(user);
         boolean reviewer = accessControl.canApproveAttendance(user);
         int safePage = Math.max(0, Math.min(page, 1000));
-        var adminRows = reviewer ? dayService.allActiveForDate(selectedDate, safePage) : null;
-        var rows = reviewer
-                ? adminRows.getContent()
-                : date != null
-                    ? List.of(dayService.evaluate(user, selectedDate))
-                    : IntStream.range(0, 30)
-                        .mapToObj(days -> dayService.evaluate(user, selectedDate.minusDays(days)))
-                        .toList();
-        var current = attendanceService.findOpenRecord(user.getId()).orElse(null);
-        if (current == null) current = attendanceService.findTodayRecord(user.getId()).orElse(null);
-
         model.addAttribute("admin", admin);
+        model.addAttribute("salesAccess", accessControl.canManageSales(user));
         model.addAttribute("reviewer", reviewer);
         model.addAttribute("user", user);
         model.addAttribute("today", attendanceService.today());
         model.addAttribute("selectedDate", selectedDate);
-        model.addAttribute("todayRecord", current);
-        model.addAttribute("openRecord", attendanceService.findOpenRecord(user.getId()).orElse(null));
-        model.addAttribute("openBreak", current == null ? null :
-                attendanceService.findOpenBreak(current.getId()).orElse(null));
-        model.addAttribute("rows", rows);
-        model.addAttribute("adminRows", adminRows);
+        model.addAttribute("filtered", date != null);
+        if (fragment == null || "attendance-overview".equals(fragment)) {
+            var open = attendanceService.findOpenRecord(user.getId()).orElse(null);
+            var current = open != null ? open : attendanceService.findTodayRecord(user.getId()).orElse(null);
+            model.addAttribute("todayRecord", current);
+            model.addAttribute("openRecord", open);
+            model.addAttribute("openBreak", current == null ? null :
+                    attendanceService.findOpenBreak(current.getId()).orElse(null));
+        }
+        if (fragment == null || "attendance-records".equals(fragment)) {
+            var adminRows = reviewer ? dayService.allActiveForDate(selectedDate, safePage) : null;
+            if (adminRows != null && safePage >= adminRows.getTotalPages() && safePage > 0) {
+                safePage = Math.max(0, adminRows.getTotalPages() - 1);
+                adminRows = dayService.allActiveForDate(selectedDate, safePage);
+            }
+            var rows = reviewer
+                    ? adminRows.getContent()
+                    : date != null
+                        ? List.of(dayService.evaluate(user, selectedDate))
+                        : IntStream.range(0, 30)
+                            .mapToObj(days -> dayService.evaluate(user, selectedDate.minusDays(days)))
+                            .toList();
+            model.addAttribute("rows", rows);
+            model.addAttribute("adminRows", adminRows);
+        }
         model.addAttribute("page", safePage);
-        return "attendance";
+        return view;
     }
 
     @GetMapping("/history")
     public String history(@RequestParam(required = false) Long userId,
+                          @RequestParam(required = false) String fragment,
                           @RequestParam(required = false)
                           @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                           @RequestParam(required = false)
                           @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
                           HttpSession session, Model model) {
         User actor = accessControl.currentUser(session).orElse(null);
-        if (actor == null) return "redirect:/";
+        if (actor == null) {
+            if (fragment != null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+            return "redirect:/";
+        }
+        String view = AjaxResult.view("attendance-history", fragment, "history-results", "history-title");
         boolean reviewer = accessControl.canViewAllAttendance(actor);
         Long targetId = userId == null ? actor.getId() : userId;
         if (!reviewer && !targetId.equals(actor.getId())) {
@@ -112,79 +129,65 @@ public class AttendanceController {
         if (span < 0 || span > 30) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "検索期間は31日以内にしてください。");
         }
-        var rows = IntStream.rangeClosed(0, (int) span)
-                .mapToObj(offset -> dayService.evaluate(target, end.minusDays(offset)))
-                .toList();
         model.addAttribute("user", actor);
         model.addAttribute("target", target);
         model.addAttribute("reviewer", reviewer);
         model.addAttribute("admin", accessControl.isAdmin(actor));
-        model.addAttribute("users", reviewer ? userRepository.findAllByOrderByStatusDescIdAsc() : List.of());
+        model.addAttribute("salesAccess", accessControl.canManageSales(actor));
+        if (fragment == null) {
+            model.addAttribute("users", reviewer ? userRepository.findAllByOrderByStatusDescIdAsc() : List.of());
+        }
         model.addAttribute("from", start);
         model.addAttribute("to", end);
-        model.addAttribute("rows", rows);
-        return "attendance-history";
+        if (fragment == null || "history-results".equals(fragment)) {
+            model.addAttribute("rows", IntStream.rangeClosed(0, (int) span)
+                    .mapToObj(offset -> dayService.evaluate(target, end.minusDays(offset))).toList());
+        }
+        return view;
     }
 
     @PostMapping("/clock-in")
-    public String clockIn(HttpSession session, RedirectAttributes redirectAttributes) {
-        Optional<User> activeUser = currentUser(session);
-        if (activeUser.isEmpty()) {
-            return "redirect:/";
-        }
-
+    public ResponseEntity<AjaxResult> clockIn(HttpSession session) {
+        User user = requireUser(session);
         try {
-            attendanceService.clockIn(activeUser.get().getId());
-            redirectAttributes.addFlashAttribute("successMessage", "出勤時刻を記録しました。");
-        } catch (IllegalStateException exception) {
-            redirectAttributes.addFlashAttribute("errorMessage", exception.getMessage());
+            attendanceService.clockIn(user.getId());
         } catch (DataIntegrityViolationException exception) {
-            redirectAttributes.addFlashAttribute("errorMessage", "本日はすでに出勤打刻済みです。");
+            return AjaxResult.error(HttpStatus.CONFLICT, "本日はすでに出勤打刻済みです。");
         }
-
-        return "redirect:/attendance";
+        return AjaxResult.ok("出勤時刻を記録しました。");
     }
 
     @PostMapping("/clock-out")
-    public String clockOut(HttpSession session, RedirectAttributes redirectAttributes) {
-        Optional<User> activeUser = currentUser(session);
-        if (activeUser.isEmpty()) {
-            return "redirect:/";
-        }
-
+    public ResponseEntity<AjaxResult> clockOut(HttpSession session) {
+        User user = requireUser(session);
         try {
-            attendanceService.clockOut(activeUser.get().getId());
-            redirectAttributes.addFlashAttribute("successMessage", "退勤時刻を記録しました。");
-        } catch (IllegalStateException exception) {
-            redirectAttributes.addFlashAttribute("errorMessage", exception.getMessage());
+            attendanceService.clockOut(user.getId());
         } catch (ObjectOptimisticLockingFailureException exception) {
-            redirectAttributes.addFlashAttribute("errorMessage", "記録が更新されました。画面を再読み込みしてください。");
+            return AjaxResult.error(HttpStatus.CONFLICT, "記録が更新されました。最新の表示を確認してください。");
         }
-
-        return "redirect:/attendance";
+        return AjaxResult.ok("退勤時刻を記録しました。");
     }
 
     @PostMapping("/break-start")
-    public String breakStart(HttpSession session, RedirectAttributes messages) {
-        return breakAction(session, messages, true);
+    public ResponseEntity<AjaxResult> breakStart(HttpSession session) {
+        return breakAction(session, true);
     }
 
     @PostMapping("/break-end")
-    public String breakEnd(HttpSession session, RedirectAttributes messages) {
-        return breakAction(session, messages, false);
+    public ResponseEntity<AjaxResult> breakEnd(HttpSession session) {
+        return breakAction(session, false);
     }
 
-    private String breakAction(HttpSession session, RedirectAttributes messages, boolean start) {
-        Optional<User> active = currentUser(session);
-        if (active.isEmpty()) return "redirect:/";
-        try {
-            if (start) attendanceService.startBreak(active.get().getId());
-            else attendanceService.endBreak(active.get().getId());
-            messages.addFlashAttribute("successMessage", start ? "休憩を開始しました。" : "休憩を終了しました。");
-        } catch (IllegalStateException exception) {
-            messages.addFlashAttribute("errorMessage", exception.getMessage());
-        }
-        return "redirect:/attendance";
+    private ResponseEntity<AjaxResult> breakAction(HttpSession session, boolean start) {
+        User user = requireUser(session);
+        if (start) attendanceService.startBreak(user.getId());
+        else attendanceService.endBreak(user.getId());
+        return AjaxResult.ok(start ? "休憩を開始しました。" : "休憩を終了しました。");
+    }
+
+    private User requireUser(HttpSession session) {
+        return currentUser(session)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
     }
 
     private Optional<User> currentUser(HttpSession session) {

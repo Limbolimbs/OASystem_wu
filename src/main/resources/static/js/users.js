@@ -1,8 +1,6 @@
 document.addEventListener("DOMContentLoaded", function () {
     const searchInput = document.getElementById("employeeSearch");
-    const employeeRows = Array.from(document.querySelectorAll(".employee-row"));
     const visibleCount = document.getElementById("visibleCount");
-    const noSearchResult = document.getElementById("noSearchResult");
     const lastUpdated = document.getElementById("lastUpdated");
 
     function updateClock() {
@@ -18,18 +16,10 @@ document.addEventListener("DOMContentLoaded", function () {
             date + " " + now.toLocaleTimeString("ja-JP", { hour12: false });
     }
 
-    document.querySelectorAll(".js-confirm-form").forEach(function (form) {
-        form.addEventListener("submit", function (event) {
-            const message = form.dataset.confirmMessage;
-
-            if (message && !window.confirm(message)) {
-                event.preventDefault();
-            }
-        });
-    });
-
-    searchInput.addEventListener("input", function () {
-        const keyword = this.value.trim().toLowerCase();
+    function filterEmployees() {
+        const employeeRows = Array.from(document.querySelectorAll(".employee-row"));
+        const noSearchResult = document.getElementById("noSearchResult");
+        const keyword = searchInput.value.trim().toLowerCase();
         let count = 0;
 
         employeeRows.forEach(function (row) {
@@ -37,7 +27,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 row.dataset.username,
                 row.dataset.realname,
                 row.dataset.department,
-                row.dataset.role
+                row.dataset.role,
+                row.querySelector(".role-badge")?.textContent
             ].join(" ").toLowerCase();
 
             const matched = searchableText.includes(keyword);
@@ -51,6 +42,13 @@ document.addEventListener("DOMContentLoaded", function () {
         visibleCount.textContent = count;
         noSearchResult.style.display =
             employeeRows.length > 0 && count === 0 ? "block" : "none";
+    }
+
+    searchInput.addEventListener("input", filterEmployees);
+    document.addEventListener("ajax:updated", function (event) {
+        if (event.detail.id !== "employee-data") return;
+        filterEmployees();
+        lastUpdated.textContent = new Date().toLocaleTimeString("ja-JP", { hour12: false });
     });
 
     updateClock();

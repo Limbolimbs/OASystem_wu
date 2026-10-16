@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.example.demo.entity.User;
 import com.example.demo.repository.UserRepository;
+import com.example.demo.service.DepartmentService;
 
 import jakarta.servlet.http.HttpSession;
 
@@ -14,9 +15,11 @@ import jakarta.servlet.http.HttpSession;
 public class AccessControlService {
 
     private final UserRepository userRepository;
+    private final DepartmentService departmentService;
 
-    public AccessControlService(UserRepository userRepository) {
+    public AccessControlService(UserRepository userRepository, DepartmentService departmentService) {
         this.userRepository = userRepository;
+        this.departmentService = departmentService;
     }
 
     @Transactional(readOnly = true)
@@ -27,7 +30,7 @@ public class AccessControlService {
         }
 
         Optional<User> user = userRepository.findById(id)
-                .filter(value -> Integer.valueOf(1).equals(value.getStatus()));
+                .filter(value -> value.isActive());
         if (user.isEmpty()) {
             session.invalidate();
         }
@@ -49,5 +52,9 @@ public class AccessControlService {
 
     public boolean canManageAttendancePolicy(User user) {
         return isAdmin(user);
+    }
+
+    public boolean canManageSales(User user) {
+        return isAdmin(user) || departmentService.isSalesDepartment(user.getDepartment());
     }
 }

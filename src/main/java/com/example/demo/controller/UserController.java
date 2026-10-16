@@ -2,6 +2,8 @@ package com.example.demo.controller;
 
 import java.util.Objects;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -10,12 +12,14 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.example.demo.entity.User;
 import com.example.demo.service.UserService;
+import com.example.demo.service.DepartmentService;
 import com.example.demo.security.SystemRole;
+import com.example.demo.security.AccountRules;
 
 import jakarta.servlet.http.HttpSession;
 
@@ -24,9 +28,11 @@ import jakarta.servlet.http.HttpSession;
 public class UserController {
 
     private final UserService userService;
+    private final DepartmentService departmentService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, DepartmentService departmentService) {
         this.userService = userService;
+        this.departmentService = departmentService;
     }
 
     /**
@@ -36,9 +42,12 @@ public class UserController {
     public String list(
             Model model,
             HttpSession session,
-            RedirectAttributes redirectAttributes) {
+            RedirectAttributes redirectAttributes,
+            @RequestParam(required = false) String fragment) {
 
-        if (!isAdmin(session)) {
+        if (fragment != null) {
+            requireAdmin(session);
+        } else if (!isAdmin(session)) {
             redirectAttributes.addFlashAttribute(
                     "errorMessage",
                     "この画面を表示する権限がありません。"
@@ -46,8 +55,10 @@ public class UserController {
             return "redirect:/home";
         }
 
+        String view = AjaxResult.view("users", fragment, "employee-data", "employee-count");
         model.addAttribute("users", userService.findAll());
-        return "users";
+        model.addAttribute("departments", departmentService.activeDepartments());
+        return view;
     }
 
     /**
@@ -68,6 +79,11 @@ public class UserController {
         }
 
         model.addAttribute("user", new User());
+        model.addAttribute("departments", departmentService.activeDepartments());
+        model.addAttribute("passwordRequirements", AccountRules.PASSWORD_REQUIREMENTS);
+        model.addAttribute("passwordMinLength", AccountRules.PASSWORD_MIN_LENGTH);
+        model.addAttribute("passwordMaxLength", AccountRules.PASSWORD_MAX_LENGTH);
+        model.addAttribute("passwordMinCategories", AccountRules.PASSWORD_MIN_CATEGORIES);
         return "user-form";
     }
 
@@ -75,34 +91,31 @@ public class UserController {
      * ユーザーを登録する
      */
     @PostMapping("/save")
-    public String save(
+    public ResponseEntity<AjaxResult> save(
             @ModelAttribute User user,
-            HttpSession session,
-            RedirectAttributes redirectAttributes) {
+            @RequestParam(defaultValue = "") String passwordConfirmation,
+            HttpSession session) {
+        requireAdmin(session);
 
-        if (!isAdmin(session)) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "ユーザーを登録する権限がありません。"
-            );
-            return "redirect:/home";
+        try {
+            AccountRules.validateLoginId(user.getUsername());
+            AccountRules.validateNewPassword(user.getPassword());
+            AccountRules.validatePasswordConfirmation(user.getPassword(), passwordConfirmation);
+        } catch (IllegalArgumentException exception) {
+            return AjaxResult.error(HttpStatus.BAD_REQUEST, exception.getMessage());
         }
 
         if (user.getUsername() == null || user.getUsername().isBlank()
                 || user.getPassword() == null || user.getPassword().isBlank()
                 || user.getRealName() == null || user.getRealName().isBlank()
+                || user.getRealName().trim().codePointCount(0, user.getRealName().trim().length()) > 50
                 || user.getRole() == null
                 || !user.getRole().equals(SystemRole.fromCode(user.getRole()).name())) {
-            redirectAttributes.addFlashAttribute("errorMessage", "必須項目または権限を確認してください。");
-            return "redirect:/users/new";
+            return AjaxResult.error(HttpStatus.BAD_REQUEST, "必須項目または権限を確認してください。");
         }
 
         if (userService.existsByUsername(user.getUsername().trim())) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "このユーザー名はすでに使用されています。"
-            );
-            return "redirect:/users/new";
+            return AjaxResult.error(HttpStatus.CONFLICT, "この社員番号（ログインID）はすでに使用されています。無効なアカウントのIDも再利用できません。");
         }
 
         // フォームからID・状態・作成日時を受け取らず、新規レコードだけを作成する。
@@ -111,166 +124,97 @@ public class UserController {
         newUser.setPassword(user.getPassword());
         newUser.setRealName(user.getRealName().trim());
         newUser.setDepartment(user.getDepartment() == null ? "" : user.getDepartment().trim());
+        if (!newUser.getDepartment().isBlank()) departmentService.requireActive(newUser.getDepartment());
         newUser.setRole(user.getRole());
         newUser.setStatus(1);
         userService.save(newUser);
 
-        redirectAttributes.addFlashAttribute(
-                "successMessage",
-                "ユーザーを登録しました。"
-        );
-
-        return "redirect:/users";
+        return AjaxResult.ok("ユーザーを登録しました。従業員一覧から確認できます。");
     }
 
     /**
      * ユーザーを無効化する
      */
     @PostMapping("/{id}/deactivate")
-    public String deactivate(
+    public ResponseEntity<AjaxResult> deactivate(
             @PathVariable Long id,
-            HttpSession session,
-            RedirectAttributes redirectAttributes) {
-
-        if (!isAdmin(session)) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "ユーザーを無効化する権限がありません。"
-            );
-            return "redirect:/home";
-        }
-
-        Long loginUserId = (Long) session.getAttribute("loginUserId");
-
-        if (Objects.equals(loginUserId, id)) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "ログイン中のユーザーは無効化できません。"
-            );
-            return "redirect:/users";
+            HttpSession session) {
+        User actor = requireAdmin(session);
+        if (Objects.equals(actor.getId(), id)) {
+            return AjaxResult.error(HttpStatus.BAD_REQUEST, "ログイン中のユーザーは無効化できません。");
         }
 
         boolean result = userService.deactivate(id);
 
         if (result) {
-            redirectAttributes.addFlashAttribute(
-                    "successMessage",
-                    "ユーザーを無効化しました。"
-            );
+            return AjaxResult.ok("ユーザーを無効化しました。");
         } else {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "対象ユーザーが見つかりません。"
-            );
+            return AjaxResult.error(HttpStatus.NOT_FOUND, "対象ユーザーが見つかりません。");
         }
-
-        return "redirect:/users";
     }
 
     /**
      * ユーザーを再有効化する
      */
     @PostMapping("/{id}/activate")
-    public String activate(
+    public ResponseEntity<AjaxResult> activate(
             @PathVariable Long id,
-            HttpSession session,
-            RedirectAttributes redirectAttributes) {
-
-        if (!isAdmin(session)) {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "ユーザーを有効化する権限がありません。"
-            );
-            return "redirect:/home";
-        }
+            HttpSession session) {
+        requireAdmin(session);
 
         boolean result = userService.activate(id);
 
         if (result) {
-            redirectAttributes.addFlashAttribute(
-                    "successMessage",
-                    "ユーザーを有効化しました。"
-            );
+            return AjaxResult.ok("ユーザーを有効化しました。");
         } else {
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "対象ユーザーが見つかりません。"
-            );
+            return AjaxResult.error(HttpStatus.NOT_FOUND, "対象ユーザーが見つかりません。");
         }
-
-        return "redirect:/users";
     }
 
     @PostMapping("/{id}/role")
-    public String updateRole(@PathVariable Long id,
+    public ResponseEntity<AjaxResult> updateRole(@PathVariable Long id,
                              @RequestParam SystemRole role,
-                             HttpSession session,
-                             RedirectAttributes flash) {
-        if (!isAdmin(session)) {
-            flash.addFlashAttribute("errorMessage", "権限を変更する権限がありません。");
-            return "redirect:/attendance";
+                             HttpSession session) {
+        User actor = requireAdmin(session);
+        if (Objects.equals(actor.getId(), id)) {
+            return AjaxResult.error(HttpStatus.BAD_REQUEST, "自分の権限は変更できません。");
         }
-        if (Objects.equals(session.getAttribute("loginUserId"), id)) {
-            flash.addFlashAttribute("errorMessage", "自分の権限は変更できません。");
-            return "redirect:/users";
-        }
-        try {
-            userService.updateRole(id, role);
-            flash.addFlashAttribute("successMessage", "権限を更新しました。");
-        } catch (IllegalArgumentException | IllegalStateException ex) {
-            flash.addFlashAttribute("errorMessage", ex.getMessage());
-        }
-        return "redirect:/users";
+        userService.updateRole(id, role);
+        return AjaxResult.ok("権限を更新しました。");
     }
 
-    /**
-     * ログイン処理
-     */
-    @PostMapping("/login")
-    @ResponseBody
-    public String login(
-            @RequestParam("userName") String userName,
-            @RequestParam("password") String password,
-            HttpSession session) {
-
-        if (userName == null || userName.isBlank()
-                || password == null || password.isBlank()) {
-            return "NG";
-        }
-
-        User loginUser = userService.findLoginUser(
-                userName.trim(),
-                password
-        );
-
-        if (loginUser == null) {
-            return "NG";
-        }
-
-        session.setAttribute("loginUserId", loginUser.getId());
-        session.setAttribute("loginUser", loginUser.getUsername());
-        session.setAttribute("loginRealName", loginUser.getRealName());
-        session.setAttribute("loginRole", loginUser.getRole());
-        session.setAttribute(
-                "loginDepartment",
-                loginUser.getDepartment()
-        );
-
-        return "OK";
+    @PostMapping("/{id}/department")
+    public ResponseEntity<AjaxResult> updateDepartment(@PathVariable Long id,
+            @RequestParam String department, HttpSession session) {
+        requireAdmin(session);
+        departmentService.assignEmployee(id, department);
+        return AjaxResult.ok("所属部署を更新しました。次回の画面アクセスから新しい部署の権限が適用されます。");
     }
 
     /**
      * 管理者権限を確認する
      */
     private boolean isAdmin(HttpSession session) {
-        Object userId = session.getAttribute("loginUserId");
-        if (!(userId instanceof Long id)) {
+        try {
+            requireAdmin(session);
+            return true;
+        } catch (ResponseStatusException ex) {
             return false;
         }
+    }
 
-        return userService.findById(id)
-                .filter(user -> Integer.valueOf(1).equals(user.getStatus()))
-                .filter(user -> "ADMIN".equals(user.getRole()))
-                .isPresent();
+    private User requireAdmin(HttpSession session) {
+        Object userId = session.getAttribute("loginUserId");
+        if (!(userId instanceof Long id)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        }
+
+        User user = userService.findById(id)
+                .filter(candidate -> candidate.isActive())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        if (!"ADMIN".equals(user.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        }
+        return user;
     }
 }

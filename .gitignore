@@ -6,6 +6,19 @@ target/
 
 # Local database credentials
 src/main/resources/application.properties
+*.aesgcm
+*.dpapi
+*.p12
+*.jks
+*.keystore
+*-key.pem
+private*.pem
+.env
+.env.*
+!.env.example
+*.log
+/releases/
+security-console/target/
 
 ### STS ###
 .apt_generated

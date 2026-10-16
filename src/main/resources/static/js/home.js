@@ -1,4 +1,18 @@
 const dashboardCharts = [];
+const chartById = new Map();
+const chartMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+function chartAnimation() { return { animation: !chartMotion.matches, animationDuration: 400, animationDurationUpdate: 250 }; }
+chartMotion.addEventListener("change", () => dashboardCharts.forEach(chart => chart.setOption(chartAnimation())));
+let dashboardLoading = false;
+
+function dashboardChart(id) {
+    if (!chartById.has(id)) {
+        const chart = echarts.init(document.getElementById(id));
+        chartById.set(id, chart);
+        dashboardCharts.push(chart);
+    }
+    return chartById.get(id);
+}
 
 const yenFormatter = new Intl.NumberFormat(
     "ja-JP",
@@ -36,64 +50,56 @@ const numberFormatter =
 
 		setInterval(updateClock, 1000);
 
-async function loadDashboard() {
-    try {
-        const response =
-            await fetch("/api/dashboard", {
-                headers: {
-                    "Accept": "application/json"
+function showDashboardError(message) {
+    $("#errorBox").text(message).show();
+    $("#dashboardStatus").text("取得失敗 / 前回表示を保持");
+}
+
+function loadDashboard() {
+    if (dashboardLoading) return;
+    const releaseFeedback = window.PortalFeedback?.busy(document.getElementById("dashboardRefresh"), "取得中") || (() => {});
+    dashboardLoading = true;
+    $("#dashboardRefresh").prop("disabled", true);
+    $.ajax({
+        url: "/api/dashboard",
+        type: "GET",
+        dataType: "json",
+        cache: false,
+        success: function (data) {
+            try {
+                $("#errorBox").hide();
+                updateSummary(data.summary);
+                // グラフライブラリが利用できなくても、数値と一覧は表示する。
+                createMonthlyTable(data);
+                $("#dashboardUpdated").text(new Date().toLocaleString("ja-JP"));
+                $("#dashboardStatus").text("登録済み営業実績を取得済み");
+                if (typeof echarts === "undefined") {
+                    showDashboardError("EChartsを読み込めませんでした。ネットワーク接続を確認してください。");
+                    return;
                 }
-            });
-
-        const contentType =
-            response.headers.get("content-type") || "";
-
-        if (!contentType.includes("application/json")) {
-            window.location.href = "/";
-            return;
+                createSalesChart(data);
+                createDepartmentChart(data);
+                createActivityChart(data);
+            } catch (error) {
+                console.error(error);
+                showDashboardError("ダッシュボードデータを取得できませんでした。");
+            }
+        },
+        error: function (xhr) {
+            if (xhr.status === 401) {
+                window.location.href = "/";
+                return;
+            }
+            showDashboardError(xhr.status === 403
+                ? "ダッシュボードを表示する権限がありません。"
+                : "ダッシュボードデータを取得できませんでした。");
+        },
+        complete: function () {
+            releaseFeedback();
+            dashboardLoading = false;
+            $("#dashboardRefresh").prop("disabled", false);
         }
-
-        if (!response.ok) {
-            throw new Error("API request failed");
-        }
-
-        const data = await response.json();
-
-			updateSummary(data.summary);
-
-			// 最初にテーブルを表示する
-			createMonthlyTable(data);
-
-			// EChartsの読み込み完了を確認する
-			if (typeof echarts === "undefined") {
-
-			    const errorBox =
-			        document.getElementById("errorBox");
-
-			    errorBox.textContent =
-			        "EChartsを読み込めませんでした。ネットワーク接続を確認してください。";
-
-			    errorBox.style.display = "block";
-
-			    return;
-			}
-
-			// 再绘制图表
-			createSalesChart(data);
-			createDepartmentChart(data);
-			createActivityChart(data);
-
-    } catch (error) {
-        console.error(error);
-
-        const errorBox =
-            document.getElementById("errorBox");
-
-        errorBox.textContent =
-            "ダッシュボードデータを取得できませんでした。";
-
-        errorBox.style.display = "block";
-    }
+    });
 }
 
 function updateSummary(summary) {
@@ -118,24 +124,22 @@ function updateSummary(summary) {
 
     document.getElementById("salesGrowth")
         .textContent =
-        (growth >= 0 ? "+" : "")
+        summary.growthAvailable === false ? "比較対象なし" : (growth >= 0 ? "+" : "")
         + growth.toFixed(1)
         + "%";
+    $("#salesGrowth").toggleClass("positive", growth >= 0).toggleClass("negative", growth < 0);
 }
 
 function getMonthLabels(months) {
     return months.map(function (month) {
         const parts = month.split("-");
-        return Number(parts[1]) + "月";
+        return parts[0] + "/" + parts[1];
     });
 }
 
 function createSalesChart(data) {
 
-    const chart =
-        echarts.init(
-            document.getElementById("salesChart")
-        );
+    const chart = dashboardChart("salesChart");
 
     const salesMillions =
         data.monthlySales.map(function (value) {
@@ -143,6 +147,7 @@ function createSalesChart(data) {
         });
 
     chart.setOption({
+        ...chartAnimation(),
         color: ["#2563eb", "#7c9bc3"],
 
         tooltip: {
@@ -239,17 +244,11 @@ function createSalesChart(data) {
         ]
     });
 
-    dashboardCharts.push(chart);
 }
 
 function createDepartmentChart(data) {
 
-    const chart =
-        echarts.init(
-            document.getElementById(
-                "departmentChart"
-            )
-        );
+    const chart = dashboardChart("departmentChart");
 
     const pieData =
         data.departmentSales.map(function (item) {
@@ -261,6 +260,7 @@ function createDepartmentChart(data) {
         });
 
     chart.setOption({
+        ...chartAnimation(),
         color: [
             "#2563eb",
             "#0ea5e9",
@@ -300,19 +300,14 @@ function createDepartmentChart(data) {
         ]
     });
 
-    dashboardCharts.push(chart);
 }
 
 function createActivityChart(data) {
 
-    const chart =
-        echarts.init(
-            document.getElementById(
-                "activityChart"
-            )
-        );
+    const chart = dashboardChart("activityChart");
 
     chart.setOption({
+        ...chartAnimation(),
         color: ["#2563eb", "#16a36a"],
 
         tooltip: {
@@ -385,41 +380,30 @@ function createActivityChart(data) {
         ]
     });
 
-    dashboardCharts.push(chart);
 }
 
 function createMonthlyTable(data) {
-
-    const tbody =
-        document.getElementById(
-            "monthlyTableBody"
-        );
-
-    tbody.innerHTML = "";
-
+    const tbody = document.getElementById("monthlyTableBody");
+    tbody.replaceChildren();
+    if (!data.months.length) {
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.colSpan = 4;
+        cell.textContent = "営業実績はまだ登録されていません。";
+        row.appendChild(cell);
+        tbody.appendChild(row);
+        return;
+    }
     data.months.forEach(function (month, index) {
-
-        const row =
-            document.createElement("tr");
-
-        row.innerHTML =
-            "<td>" + month + "</td>"
-            + "<td>"
-            + yenFormatter.format(
-                data.monthlySales[index]
-            )
-            + "</td>"
-            + "<td>"
-            + numberFormatter.format(
-                data.monthlyOrders[index]
-            )
-            + " 件</td>"
-            + "<td>"
-            + numberFormatter.format(
-                data.monthlyCustomers[index]
-            )
-            + " 人</td>";
-
+        const row = document.createElement("tr");
+        const values = [month, yenFormatter.format(data.monthlySales[index]),
+            numberFormatter.format(data.monthlyOrders[index]) + " 件",
+            numberFormatter.format(data.monthlyCustomers[index]) + " 人"];
+        values.forEach(function (value) {
+            const cell = document.createElement("td");
+            cell.textContent = value;
+            row.appendChild(cell);
+        });
         tbody.appendChild(row);
     });
 }
@@ -431,3 +415,6 @@ window.addEventListener("resize", function () {
 });
 
 loadDashboard();
+$("#dashboardRefresh").on("click", loadDashboard);
+setInterval(function () { if (!document.hidden) loadDashboard(); }, 30000);
+document.addEventListener("visibilitychange", function () { if (!document.hidden) loadDashboard(); });

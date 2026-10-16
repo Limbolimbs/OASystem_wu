@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <th:block th:replace="~{fragments/security :: csrf}"></th:block>
+    <title>マイページ | 企業OAシステム</title>
+    <link rel="stylesheet" th:href="@{/css/portal-layout.css}">
+    <link rel="stylesheet" th:href="@{/css/portal-components.css}">
+    <link rel="stylesheet" th:href="@{/css/message-dialog.css}">
+    <link rel="stylesheet" th:href="@{/css/my-page.css}">
+    <th:block th:replace="~{fragments/portal :: feedback}"></th:block>
+</head>
+<body>
+    <div class="app-shell">
+        <aside th:replace="~{fragments/sidebar :: sidebar('profile', ${profile.admin}, ${profile.sales})}"></aside>
+        <section class="main-area">
+            <header th:replace="~{fragments/portal :: header('マイページ', 'currentTime', ${profile.name})}"></header>
+            <main class="content" id="mainContent" tabindex="-1">
+                <section class="page-hero">
+                    <div>
+                        <p class="eyebrow">個人情報・アカウント設定</p>
+                        <h1>マイページ</h1>
+                        <p class="hero-description">ご自身の登録情報を確認し、パスワードを安全に管理できます。</p>
+                    </div>
+                    <a class="primary-button" href="#password-settings">パスワードを変更</a>
+                </section>
+
+                <div class="profile-grid">
+                    <section class="profile-panel" aria-labelledby="profile-heading">
+                        <div class="profile-panel-heading">
+                            <h2 id="profile-heading">登録情報</h2>
+                            <span class="status-badge status-active">有効</span>
+                        </div>
+                        <div class="profile-person">
+                            <span class="profile-avatar" aria-hidden="true" th:text="${#strings.isEmpty(profile.name) ? 'U' : #strings.substring(profile.name, 0, 1)}">U</span>
+                            <div><p class="profile-name" th:text="${profile.name}">氏名</p><p class="profile-note" th:text="${profile.roleLabel}">一般社員</p></div>
+                        </div>
+                        <dl class="profile-details">
+                            <div><dt>社員番号（ログインID）</dt><dd th:text="${profile.loginId}"></dd></div>
+                            <div><dt>氏名</dt><dd th:text="${profile.name}"></dd></div>
+                            <div><dt>所属部署</dt><dd th:text="${#strings.isEmpty(profile.department) ? '未設定' : profile.department}"></dd></div>
+                            <div><dt>利用権限</dt><dd th:text="${profile.roleLabel}"></dd></div>
+                            <div><dt>登録日時</dt><dd th:text="${profile.registeredAt == null ? '—' : #temporals.format(profile.registeredAt, 'yyyy-MM-dd HH:mm:ss')}"></dd></div>
+                        </dl>
+                        <p class="profile-help">登録情報は会社が管理しています。氏名・所属部署などの変更は管理者へご依頼ください。</p>
+                    </section>
+
+                    <section class="profile-panel" aria-labelledby="shortcuts-heading">
+                        <div class="profile-panel-heading"><h2 id="shortcuts-heading">よく使う機能</h2></div>
+                        <p class="profile-note">利用権限に応じた業務画面へ移動できます。</p>
+                        <div class="profile-shortcuts">
+                            <a th:href="@{/attendance}"><span class="summary-icon" aria-hidden="true">AT</span><span><strong>勤怠管理</strong><small>打刻・勤務状況を確認</small></span><span aria-hidden="true">→</span></a>
+                            <a th:href="@{/attendance/manage}"><span class="summary-icon" aria-hidden="true">RQ</span><span><strong>勤怠申請・承認</strong><small th:text="${profile.approver ? '申請・承認待ちを確認' : '本人の申請・履歴を確認'}"></small></span><span aria-hidden="true">→</span></a>
+                            <a th:href="@{/notices}"><span class="summary-icon" aria-hidden="true">NT</span><span><strong>お知らせ</strong><small>社内の連絡・公告を確認</small></span><span aria-hidden="true">→</span></a>
+                            <a th:if="${profile.sales}" th:href="@{/sales}"><span class="summary-icon" aria-hidden="true">SL</span><span><strong>営業実績管理</strong><small>月次実績を登録・確認</small></span><span aria-hidden="true">→</span></a>
+                            <a th:if="${profile.admin}" th:href="@{/home}"><span class="summary-icon" aria-hidden="true">HM</span><span><strong>経営ダッシュボード</strong><small>全社の経営データを確認</small></span><span aria-hidden="true">→</span></a>
+                            <a th:if="${profile.admin}" th:href="@{/users}"><span class="summary-icon" aria-hidden="true">HR</span><span><strong>従業員情報管理</strong><small>従業員・所属・権限を管理</small></span><span aria-hidden="true">→</span></a>
+                        </div>
+                    </section>
+                </div>
+
+                <section class="profile-panel password-panel" id="password-settings" aria-labelledby="password-heading">
+                    <div class="profile-panel-heading"><h2 id="password-heading">パスワード変更</h2><span class="profile-note">本人のみ変更可能</span></div>
+                    <p class="profile-note">変更後はすべての端末からログアウトします。新しいパスワードで再度ログインしてください。</p>
+                    <noscript><p class="profile-message" role="alert">パスワード変更にはJavaScriptが必要です。ブラウザーの設定をご確認ください。</p></noscript>
+                    <div id="password-message" class="profile-message" role="status" tabindex="-1" hidden></div>
+                    <form id="passwordForm" th:action="@{/my-page/password}" method="post" novalidate
+                            th:attr="data-min-length=${passwordMinLength},data-max-length=${passwordMaxLength}">
+                        <div class="password-fields">
+                            <label for="currentPassword">現在のパスワード<span class="required-label">必須</span>
+                                <input id="currentPassword" name="currentPassword" type="password" autocomplete="current-password" maxlength="510" required>
+                            </label>
+                            <label for="newPassword">新しいパスワード<span class="required-label">必須</span>
+                                <input id="newPassword" name="newPassword" type="password" autocomplete="new-password" maxlength="256" aria-describedby="password-requirements" required>
+                            </label>
+                            <label for="passwordConfirmation">新しいパスワード（確認）<span class="required-label">必須</span>
+                                <input id="passwordConfirmation" name="passwordConfirmation" type="password" autocomplete="new-password" maxlength="256" required>
+                            </label>
+                        </div>
+                        <p class="profile-help" id="password-requirements" th:text="${passwordRequirements}"></p>
+                        <p class="profile-note">本人確認を繰り返し失敗した場合は、ログインと共通の試行制限が適用されます。</p>
+                        <div class="password-actions">
+                            <button class="profile-submit" type="submit" disabled>パスワードを変更</button>
+                            <button class="profile-secondary" type="reset">入力をクリア</button>
+                        </div>
+                    </form>
+                </section>
+            </main>
+        </section>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script th:src="@{/js/portal-navigation.js}"></script>
+    <script th:src="@{/js/request-security.js}"></script>
+    <script th:src="@{/js/message-dialog.js}"></script>
+    <script th:src="@{/js/portal.js}"></script>
+    <script th:src="@{/js/my-page.js}"></script>
+</body>
+</html>

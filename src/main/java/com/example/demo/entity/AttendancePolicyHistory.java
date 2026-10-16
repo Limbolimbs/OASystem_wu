@@ -11,14 +11,14 @@ import jakarta.persistence.Version;
 
 @Entity
 @Table(name = "attendance_policy_history")
-public class AttendancePolicyHistory {
+public class AttendancePolicyHistory extends LogicalDeleteEntity {
     @Id
     @Column(name = "effective_from")
     private LocalDate effectiveFrom;
 
-    @Column(name = "standard_start", nullable = false)
+    @Column(name = "standard_start", nullable = false, columnDefinition = "TIME")
     private LocalTime standardStart;
-    @Column(name = "standard_end", nullable = false)
+    @Column(name = "standard_end", nullable = false, columnDefinition = "TIME")
     private LocalTime standardEnd;
     @Column(name = "break_minutes", nullable = false)
     private int breakMinutes;

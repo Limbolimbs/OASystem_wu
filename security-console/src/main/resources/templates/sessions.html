@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head>
+ <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+ <meta name="_csrf" th:content="${_csrf.token}"><meta name="_csrf_header" th:content="${_csrf.headerName}">
+ <title>セッション管理</title>
+ <link rel="stylesheet" th:href="@{/css/control.css}"><link rel="stylesheet" th:href="@{/css/personnel.css}"><link rel="stylesheet" th:href="@{/css/sessions.css}">
+</head>
+<body th:attr="data-role=${role}">
+<main class="personnel-workspace session-workspace">
+ <header class="workspace-header"><a class="text-link" href="/console">← セキュリティ監視</a><span class="operator" th:text="${operator}">担当者</span></header>
+ <section class="console-hero"><div><p class="eyebrow">認証済み会話の管理</p><h1>セッション管理</h1><p class="muted">業務・管理の会話を確認し、必要な会話だけを終了します。</p></div><span class="badge" th:text="${role=='OWNER'?'最高管理者':role=='OPERATOR'?'監視・運用':'監視のみ'}">操作範囲</span></section>
+ <p id="sessionNotice" class="message" role="status" hidden></p>
+ <section class="panel">
+  <div class="panel-heading"><div><p class="section-code">検索 / 01</p><h2>会話の検索</h2></div><button id="sessionRefresh" class="secondary" type="button">一覧を再取得</button></div>
+  <form id="sessionSearch" class="session-filter">
+   <div><label for="sessionRealm">対象領域</label><select id="sessionRealm" name="realm"><option value="ALL">すべて</option><option value="OA">業務</option><option value="CONTROL">管理</option></select></div>
+   <div><label for="sessionState">会話状態</label><select id="sessionState" name="state"><option value="ACTIVE">有効</option><option value="ENDED">終了・認証失効</option><option value="EXPIRED">期限切れ</option><option value="ALL">すべて</option></select></div>
+   <div><label for="sessionKeyword">ログインID</label><input id="sessionKeyword" name="keyword" maxlength="50" placeholder="ログインIDで検索"></div>
+   <div><label for="sessionIp">接続元IP</label><input id="sessionIp" name="ip" maxlength="64" placeholder="IPv4 / IPv6の完全一致"></div>
+   <button class="primary" type="submit">検索する</button>
+  </form>
+  <p class="panel-note">接続元IPはログイン時の暗号化証跡から表示します。会話参照IDはCookieとは別の識別子です。</p>
+ </section>
+ <section class="panel">
+  <div class="panel-heading"><div><p class="section-code">会話 / 02</p><h2>登録セッション一覧</h2></div><span id="sessionCount" class="badge quiet">取得しています</span></div>
+  <p class="panel-note">セッション終了はアカウント保護ではありません。終了後も新しいログインは可能です。「全会話を終了」は確認時の対象本人の会話だけを終了します。</p>
+  <div class="table-wrap"><table><thead><tr><th>会話参照ID</th><th>領域・ログインID</th><th>接続元IP</th><th>認証日時</th><th>最終操作</th><th>期限</th><th>状態</th><th>操作</th></tr></thead><tbody id="sessionRows"></tbody></table></div>
+  <div class="pager"><button id="sessionPrevious" class="secondary" type="button">前へ</button><span id="sessionPage">—</span><button id="sessionNext" class="secondary" type="button">次へ</button></div>
+  <p id="sessionUpdated" class="panel-note">最終取得：—</p>
+ </section>
+ <section class="panel session-permissions"><h2>操作範囲</h2><p>最高管理者は許可された全対象を終了できます。監視・運用担当者は一般社員の業務会話と自分の管理会話を終了できます。管理者・他担当者の会話は申請し、最高管理者が審査します。監視担当者は自分の管理会話だけを終了できます。</p><a class="secondary session-review-link" href="/console?panel=reviews">運用申請・審査を開く →</a></section>
+</main>
+<dialog id="sessionDialog" aria-labelledby="sessionDialogTitle">
+ <form id="sessionAction" novalidate>
+  <div class="dialog-top"><span class="section-code">会話終了の確認</span><button id="sessionClose" class="icon-button" type="button" aria-label="閉じる">×</button></div>
+  <h2 id="sessionDialogTitle">対象会話を終了</h2><p id="sessionTarget" class="muted"></p><p id="sessionImpact" class="field-note"></p>
+  <label for="sessionReason">操作理由</label><textarea id="sessionReason" name="reason" rows="3" maxlength="300" required placeholder="本人確認と終了の理由を入力"></textarea>
+  <label for="sessionOtp">新しい認証コード</label><input id="sessionOtp" name="otp" maxlength="6" inputmode="numeric" autocomplete="one-time-code" required placeholder="000000">
+  <p class="field-note">直前のコードは再利用できません。パスワード・認証器・社員情報は変更しません。</p>
+  <p id="sessionError" class="message error" role="alert" hidden></p>
+  <div class="dialog-buttons"><button id="sessionCancel" class="secondary" type="button">キャンセル</button><button class="primary" type="submit">確認して実行</button></div>
+ </form>
+</dialog>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+<script th:src="@{/js/request-security.js}"></script><script th:src="@{/js/sessions.js}"></script>
+</body></html>

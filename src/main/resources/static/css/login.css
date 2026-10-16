@@ -125,7 +125,7 @@ body::after{
 	top: -110px;
 	right: -70px;
 	
-	border-radius: 50%
+	border-radius: 50%;
 	background: rgba(50,130,230,0.17);
 }
 
@@ -179,7 +179,7 @@ body::after{
 }
 
 .brand-message{
-	max-weight: 430px;
+	max-width: 430px;
 }
 
 .brand-label{
@@ -202,7 +202,7 @@ body::after{
 	margin: 0 0 22px;
 	
 	color: #ffffff;
-	font0-size: clamp(32px,4vw,47px);
+	font-size: clamp(28px,3vw,40px);
 	line-height: 1.35;
 	font-weight: 700;
 	letter-spacing: 0.05em;
@@ -303,7 +303,8 @@ body::after{
 	color: #a1acba;
 }
 
-.form-control:hover{
+.form-control:hover,
+.form-control:focus-visible{
 	border-color: var(--blue);
 	background: #ffffff;
 	box-shadow: 0 0 0 4px rgba(37,99,235,0.11);

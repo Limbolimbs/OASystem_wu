@@ -1,0 +1,30 @@
+/* 操作結果の通知と処理中の表示。 */
+.ajax-notice {
+    position: fixed;
+    z-index: 1000;
+    right: 24px;
+    bottom: 24px;
+    max-width: min(640px, calc(100vw - 48px));
+    padding: 16px 20px;
+    border: 1px solid #9ce0c8;
+    border-radius: 12px;
+    background: #effcf6;
+    color: #126648;
+    box-shadow: 0 8px 30px #122c4526;
+    font: inherit;
+}
+.ajax-notice.ajax-error { border-color: #f0b3bf; background: #fff4f6; color: #a32943; }
+.ajax-notice button {
+    margin: 8px 0 0 12px;
+    padding: 6px 10px;
+    border: 1px solid currentColor;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+}
+form[aria-busy="true"] { opacity: .7; }
+[data-ajax-region][aria-busy="true"] { opacity: .7; }
+[data-ajax-region][aria-busy="true"] a,
+[data-ajax-region][aria-busy="true"] button { pointer-events: none; }

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+    <head>
+    <th:block th:replace="~{fragments/security :: csrf}"></th:block>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>営業実績管理 | 企業OAシステム</title>
+    <link rel="stylesheet" th:href="@{/css/portal-layout.css}" href="/css/portal-layout.css">
+    <link rel="stylesheet" th:href="@{/css/portal-components.css}" href="/css/portal-components.css">
+        <link rel="stylesheet" th:href="@{/css/business.css}">
+        <link rel="stylesheet" th:href="@{/css/status-messages.css}">
+        <link rel="stylesheet" th:href="@{/css/message-dialog.css}">
+        <th:block th:replace="~{fragments/portal :: feedback}"></th:block>
+    </head>
+    <body>
+        <div class="app-shell">
+            <aside th:replace="~{fragments/sidebar :: sidebar('sales', ${isAdmin}, true)}">
+            </aside>
+            <section class="main-area">
+                <header th:replace="~{fragments/portal :: header('営業実績管理', 'currentTime', ${currentUser.realName})}"></header>
+                <main class="content" id="mainContent" tabindex="-1">
+                    <section class="page-hero">
+                        <div>
+                            <p class="eyebrow">営業部門ポータル</p>
+                            <h1>営業実績管理</h1>
+                            <p class="hero-description">確認済みの月次実績を登録し、経営ダッシュボードへ連携します。</p>
+                        </div>
+                        <span class="department-badge" th:text="${isAdmin ? '全部署を管理' : currentUser.department}">営業部</span>
+                    </section>
+                    <div class="overview-row">
+                        <article class="summary-card">
+                            <div class="summary-icon">SL</div>
+                            <div>
+                                <p class="summary-label">登録単位</p>
+                                <p class="business-value">対象月 × 部署</p>
+                            </div>
+                        </article>
+                        <article class="guide-card">
+                            <div>
+                                <h2>保存後、経営データへ反映</h2>
+                                <p>同じ月・部署の実績は1件です。修正は一覧の「編集」から行い、重複集計を防ぎます。</p>
+                            </div>
+                        </article>
+                    </div>
+                    <section class="business-panel" id="sales-entry">
+                        <div class="business-heading">
+                            <h2 id="salesFormTitle">月次実績を登録</h2>
+                            <span class="muted">金額：円 / 受注：件 / 新規顧客：人</span>
+                        </div>
+                        <form id="salesForm" th:action="@{/sales/save}" method="post" data-ajax data-ajax-targets="sales-data">
+                            <input type="hidden" name="id">
+                            <input type="hidden" name="version">
+                            <div class="business-fields">
+                                <label>対象月 <input id="salesMonth" type="month" name="salesMonth" th:value="${currentMonth}" min="2000-01" max="9999-12" required>
+                                </label>
+                                <label th:if="${isAdmin}">部署 <select id="salesDepartment" name="department" required>
+                                        <option value="">部署を選択</option>
+                                        <option th:each="department : ${departments}" th:value="${department.name}" th:text="${department.name}">
+                                        </option>
+                                    </select>
+                                </label>
+                                <label th:unless="${isAdmin}">所属部署 <input id="salesDepartment" name="department" th:value="${currentUser.department}" readonly>
+                                </label>
+                                <label>売上高（円） <input type="number" name="salesAmount" min="0" max="9999999999999999.99" step="0.01" placeholder="例：18500000" required>
+                                </label>
+                                <label>受注件数 <input type="number" name="orderCount" min="0" max="2147483647" step="1" placeholder="例：920" required>
+                                </label>
+                                <label>新規顧客数 <input type="number" name="customerCount" min="0" max="2147483647" step="1" placeholder="例：95" required>
+                                </label>
+                                <label class="wide-field">確認メモ <textarea name="notes" maxlength="500" rows="3" placeholder="照合した帳票や修正理由など（500文字以内）">
+                                    </textarea>
+                                </label>
+                            </div>
+                            <label class="check-field">
+                                <input type="checkbox" name="confirmed" value="true" required> 帳票などと照合し、実績の内容を確認しました。</label>
+                            <div class="business-actions">
+                                <button class="business-submit" type="submit">実績を保存</button>
+                                <button class="business-secondary" id="salesReset" type="button">新規入力に戻る</button>
+                            </div>
+                            <p class="muted">一般社員は所属部署のみ登録・参照できます。登録者と更新日時は自動記録されます。</p>
+                        </form>
+                    </section>
+                    <section class="table-panel" id="sales-data" th:fragment="sales-data" data-ajax-region th:attr="data-ajax-url=@{/sales}">
+                        <div class="table-toolbar">
+                            <div class="table-title">
+                                <h2>登録済み営業実績</h2>
+                                <p th:text="${#lists.size(salesRows) + '件 / 更新は既存の実績を置き換えます。'}">
+                                </p>
+                            </div>
+                            <a class="business-secondary" th:href="@{/sales}" data-ajax-targets="sales-data">一覧を再取得</a>
+                        </div>
+                        <div class="table-scroll">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>対象月</th>
+                                        <th>部署</th>
+                                        <th>売上高（円）</th>
+                                        <th>受注件数</th>
+                                        <th>新規顧客数</th>
+                                        <th>更新者ID</th>
+                                        <th>更新日時</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="row : ${salesRows}">
+                                        <td th:text="${row.salesMonth}">
+                                        </td>
+                                        <td>
+                                            <span class="department-badge" th:text="${row.department}">
+                                            </span>
+                                        </td>
+                                        <td th:text="${#numbers.formatDecimal(row.salesAmount, 1, 'COMMA', 2, 'POINT')}">
+                                        </td>
+                                        <td th:text="${row.orderCount + ' 件'}">
+                                        </td>
+                                        <td th:text="${row.customerCount + ' 人'}">
+                                        </td>
+                                        <td th:text="${row.updatedBy == null ? '既存データ' : '#' + row.updatedBy}">
+                                        </td>
+                                        <td class="date-cell" th:text="${row.updatedAt == null ? '-' : #temporals.format(row.updatedAt, 'yyyy-MM-dd HH:mm:ss')}">
+                                        </td>
+                                        <td>
+                                            <button class="table-action-button action-success sales-edit" type="button" th:attr="data-id=${row.id}">編集</button>
+                                        </td>
+                                    </tr>
+                                    <tr th:if="${#lists.isEmpty(salesRows)}">
+                                        <td colspan="8" class="empty-state">営業実績はまだ登録されていません。</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <footer class="table-footer">
+                            <span>実績を削除せず、必要な場合は確認して修正してください。</span>
+                            <a th:if="${isAdmin}" class="back-link" th:href="@{/home}">経営ダッシュボードへ →</a>
+                        </footer>
+                    </section>
+                </main>
+            </section>
+        </div>
+        <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="/js/portal-navigation.js" th:src="@{/js/portal-navigation.js}"></script>
+        <script src="/js/request-security.js" th:src="@{/js/request-security.js}"></script>
+        <script th:src="@{/js/message-dialog.js}"></script>
+        <script th:src="@{/js/page-interactions.js}">
+        </script>
+        <script th:src="@{/js/portal.js}">
+        </script>
+        <script th:src="@{/js/sales.js}">
+        </script>
+    </body>
+</html>

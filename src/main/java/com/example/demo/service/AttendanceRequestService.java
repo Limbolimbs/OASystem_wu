@@ -1,9 +1,11 @@
 package com.example.demo.service;
 
+import com.example.demo.attendance.AttendanceClock;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
+import java.util.Objects;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -24,6 +26,7 @@ import com.example.demo.entity.User;
 import com.example.demo.repository.AttendanceEventRepository;
 import com.example.demo.repository.AttendanceAuditLogRepository;
 import com.example.demo.repository.AttendanceRecordRepository;
+import com.example.demo.repository.AttendanceBreakRepository;
 import com.example.demo.repository.AttendanceRequestRepository;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.security.SystemRole;
@@ -31,10 +34,9 @@ import com.example.demo.security.SystemRole;
 @Service
 public class AttendanceRequestService {
 
-    private static final ZoneId WORK_ZONE = ZoneId.of("Asia/Tokyo");
-
     private final AttendanceRequestRepository requestRepository;
     private final AttendanceRecordRepository recordRepository;
+    private final AttendanceBreakRepository breakRepository;
     private final AttendanceEventRepository eventRepository;
     private final AttendancePolicyService policyService;
     private final UserRepository userRepository;
@@ -42,12 +44,14 @@ public class AttendanceRequestService {
 
     public AttendanceRequestService(AttendanceRequestRepository requestRepository,
                                     AttendanceRecordRepository recordRepository,
+                                    AttendanceBreakRepository breakRepository,
                                     AttendanceEventRepository eventRepository,
                                     AttendancePolicyService policyService,
                                     UserRepository userRepository,
                                     AttendanceAuditLogRepository auditRepository) {
         this.requestRepository = requestRepository;
         this.recordRepository = recordRepository;
+        this.breakRepository = breakRepository;
         this.eventRepository = eventRepository;
         this.policyService = policyService;
         this.userRepository = userRepository;
@@ -73,12 +77,18 @@ public class AttendanceRequestService {
     }
 
     @Transactional
+    @com.example.demo.security.BusinessAudit(operation = "REQUEST_SUBMIT", target = "REQUEST")
     public AttendanceRequest submit(Long userId, AttendanceRequestType type,
                                     LocalDate start, LocalDate end,
                                     LocalDateTime clockIn, LocalDateTime clockOut,
                                     LocalDateTime overtimeEnd, String reason) {
         validate(type, start, end, clockIn, clockOut, overtimeEnd, reason);
-        User user = activeUser(userId);
+        // 同一社員の同時申請を直列化し、重複判定から保存までを同じTXで行う。
+        User user = userRepository.findForUpdate(userId).filter(User::isActive)
+                .orElseThrow(() -> new IllegalStateException("有効なユーザーではありません。"));
+        if (!"EMPLOYEE".equals(user.getRole())) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "新規申請は一般社員のみ利用できます。");
+        }
         List<AttendanceRequest> existing = requestRepository
                 .findByUser_IdAndRequestTypeAndStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
                         userId, type, RequestStatus.PENDING, end, start);
@@ -101,8 +111,10 @@ public class AttendanceRequestService {
     }
 
     @Transactional
+    @com.example.demo.security.BusinessAudit(operation = "REQUEST_CANCEL", target = "REQUEST", idArgument = 1)
     public void cancel(Long userId, Long requestId) {
         AttendanceRequest value = requestRepository.findById(requestId)
+                .filter(item -> !item.isDeleted())
                 .orElseThrow(() -> new IllegalArgumentException("申請が見つかりません。"));
         if (!value.getUser().getId().equals(userId) || value.getStatus() != RequestStatus.PENDING) {
             throw new IllegalStateException("この申請は取り下げできません。");
@@ -112,9 +124,16 @@ public class AttendanceRequestService {
     }
 
     @Transactional
+    @com.example.demo.security.BusinessAudit(operation = "REQUEST_REVIEW", target = "REQUEST", idArgument = 1)
     public void review(Long reviewerId, Long requestId, boolean approved, String comment) {
-        AttendanceRequest value = requestRepository.findById(requestId)
+        // 通常SELECTで古いスナップショットを作る前に、申請と対象社員をロックする。
+        AttendanceRequest value = requestRepository.findForUpdate(requestId)
+                .filter(item -> !item.isDeleted())
                 .orElseThrow(() -> new IllegalArgumentException("申請が見つかりません。"));
+        if (approved) {
+            userRepository.findForUpdate(value.getUser().getId()).filter(User::isActive)
+                    .orElseThrow(() -> new IllegalStateException("無効な従業員の申請は承認できません。差し戻してください。"));
+        }
         User reviewer = activeUser(reviewerId);
         SystemRole role = SystemRole.fromCode(reviewer.getRole());
         if (role != SystemRole.ADMIN && role != SystemRole.GENERAL_AFFAIRS) {
@@ -125,9 +144,6 @@ public class AttendanceRequestService {
         }
         if (value.getStatus() != RequestStatus.PENDING) {
             throw new IllegalStateException("この申請はすでに処理されています。");
-        }
-        if (approved && !Integer.valueOf(1).equals(value.getUser().getStatus())) {
-            throw new IllegalStateException("無効な従業員の申請は承認できません。差し戻してください。");
         }
         if (comment != null && comment.length() > 1000) {
             throw new IllegalArgumentException("コメントは1000文字以内で入力してください。");
@@ -141,7 +157,7 @@ public class AttendanceRequestService {
         value.setStatus(approved ? RequestStatus.APPROVED : RequestStatus.REJECTED);
         value.setReviewer(reviewer);
         value.setReviewComment(comment == null ? null : comment.trim());
-        value.setReviewedAt(LocalDateTime.now(WORK_ZONE));
+        value.setReviewedAt(AttendanceClock.now());
         audit(reviewer, approved ? "APPROVE_REQUEST" : "REJECT_REQUEST",
                 value.getId(), "PENDING", value.getStatus().name());
     }
@@ -154,7 +170,7 @@ public class AttendanceRequestService {
                 || reason.length() > 1000) {
             throw new IllegalArgumentException("申請内容・期間・理由を確認してください。期間は最大31日です。");
         }
-        LocalDate today = LocalDate.now(WORK_ZONE);
+        LocalDate today = AttendanceClock.today();
         if (start.isBefore(today.minusYears(1)) || end.isAfter(today.plusYears(1))) {
             throw new IllegalArgumentException("申請日は前後1年以内で指定してください。");
         }
@@ -238,6 +254,20 @@ public class AttendanceRequestService {
         if (in == null || (out != null && !out.isAfter(in))) {
             throw new IllegalStateException("修正後の出勤・退勤時刻が不正です。");
         }
+        if (out == null && recordRepository
+                .findFirstByUser_IdAndClockOutAtIsNullOrderByClockInAtDesc(userId)
+                .filter(open -> !Objects.equals(open.getId(), record.getId())).isPresent()) {
+            throw new IllegalStateException("別の未退勤記録があります。先にその記録の退勤時刻を修正してください。");
+        }
+        if (record.getId() != null) {
+            for (var rest : breakRepository.findByAttendanceRecord_IdOrderByStartedAtAsc(record.getId())) {
+                if (rest.getStartedAt().isBefore(in)
+                        || (out != null && (rest.getEndedAt() == null || rest.getEndedAt().isAfter(out)))) {
+                    throw new IllegalStateException("修正後の出退勤時刻が休憩記録と矛盾しています。休憩中は退勤時刻を確定できません。記録を確認して再申請してください。");
+                }
+            }
+        }
+        record.restore();
         record.setUser(value.getUser());
         record.setWorkDate(value.getStartDate());
         record.setClockInAt(in);
@@ -248,14 +278,14 @@ public class AttendanceRequestService {
         event.setUser(value.getUser());
         event.setActor(reviewer);
         event.setEventType(AttendanceEventType.CORRECTION_APPLIED);
-        event.setEventAt(LocalDateTime.now(WORK_ZONE));
+        event.setEventAt(AttendanceClock.now());
         event.setNote("申請#" + value.getId() + " / 出勤=" + in + " / 退勤=" + out);
         eventRepository.save(event);
     }
 
     private User activeUser(Long id) {
         return userRepository.findById(id)
-                .filter(user -> Integer.valueOf(1).equals(user.getStatus()))
+                .filter(user -> user.isActive())
                 .orElseThrow(() -> new IllegalStateException("有効なユーザーではありません。"));
     }
 

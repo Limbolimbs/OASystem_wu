@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+    <head>
+    <th:block th:replace="~{fragments/security :: csrf}"></th:block>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>部署管理 | 企業OAシステム</title>
+    <link rel="stylesheet" th:href="@{/css/portal-layout.css}" href="/css/portal-layout.css">
+    <link rel="stylesheet" th:href="@{/css/portal-components.css}" href="/css/portal-components.css">
+        <link rel="stylesheet" th:href="@{/css/business.css}">
+        <link rel="stylesheet" th:href="@{/css/status-messages.css}">
+        <link rel="stylesheet" th:href="@{/css/message-dialog.css}">
+        <th:block th:replace="~{fragments/portal :: feedback}"></th:block>
+    </head>
+    <body>
+        <div class="app-shell">
+            <aside th:replace="~{fragments/sidebar :: sidebar('departments', true, true)}">
+            </aside>
+            <section class="main-area">
+                <header th:replace="~{fragments/portal :: header('部署管理', 'currentTime', ${session.loginRealName})}"></header>
+                <main class="content" id="mainContent" tabindex="-1">
+                    <section class="page-hero">
+                        <div>
+                            <p class="eyebrow">組織・所属管理</p>
+                            <h1>部署管理</h1>
+                            <p class="hero-description">部署を登録し、営業実績の利用権限と有効状態を管理します。</p>
+                        </div>
+                        <a class="primary-button" th:href="@{/users}">従業員の所属を設定 →</a>
+                    </section>
+                    <section class="business-panel">
+                        <div class="business-heading">
+                            <h2>部署を新規登録</h2>
+                            <span class="muted">管理者専用</span>
+                        </div>
+                        <form th:action="@{/departments}" method="post" data-ajax data-ajax-targets="department-data" data-ajax-reset>
+                            <div class="business-fields">
+                                <label>部署コード <input name="code" maxlength="50" pattern="[A-Z0-9_-]+" placeholder="例：SALES_2" required>
+                                </label>
+                                <label>部署名 <input name="name" maxlength="50" placeholder="例：営業第二部" required>
+                                </label>
+                            </div>
+                            <label class="check-field">
+                                <input type="checkbox" name="salesEnabled" value="true"> 営業実績の登録を許可する</label>
+                            <p class="muted">許可した部署の社員は、ログイン後に営業実績管理へ移動します。勤怠機能も引き続き利用できます。</p>
+                            <button class="business-submit" type="submit">部署を登録</button>
+                        </form>
+                    </section>
+                    <section class="table-panel" id="department-data" th:fragment="department-data" data-ajax-region th:attr="data-ajax-url=@{/departments}">
+                        <div class="table-toolbar">
+                            <div class="table-title">
+                                <h2>部署一覧</h2>
+                                <p>部署名・コードは履歴との整合性を保つため、登録後は変更しません。</p>
+                            </div>
+                            <a class="business-secondary" th:href="@{/departments}" data-ajax-targets="department-data">一覧を再取得</a>
+                        </div>
+                        <div class="table-scroll">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>部署コード</th>
+                                        <th>部署名</th>
+                                        <th>状態</th>
+                                        <th>更新日時</th>
+                                        <th>利用設定</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="department : ${departments}" th:attr="data-ajax-lock=${'department:' + department.id}">
+                                        <td class="username" th:text="${department.code}">
+                                        </td>
+                                        <td th:text="${department.name}">
+                                        </td>
+                                        <td>
+                                            <span class="status-badge" th:classappend="${department.status == 1 ? 'status-active' : 'status-inactive'}" th:text="${department.status == 1 ? '有効' : '無効'}">
+                                            </span>
+                                        </td>
+                                        <td class="date-cell" th:text="${department.updatedAt == null ? '-' : #temporals.format(department.updatedAt, 'yyyy-MM-dd HH:mm:ss')}">
+                                        </td>
+                                        <td>
+                                            <form class="action-form" th:action="@{/departments/{id}(id=${department.id})}" method="post" data-ajax data-ajax-targets="department-data">
+                                                <input type="hidden" name="version" th:value="${department.version}">
+                                                <div class="row-actions">
+                                                    <label class="check-field">
+                                                        <input type="checkbox" name="salesEnabled" value="true" th:checked="${department.salesEnabled}"> 営業実績登録</label>
+                                                    <select name="status" aria-label="部署の状態">
+                                                        <option value="1" th:selected="${department.status == 1}">有効</option>
+                                                        <option value="0" th:selected="${department.status == 0}">無効</option>
+                                                    </select>
+                                                    <button class="table-action-button action-success" type="submit">設定を更新</button>
+                                                </div>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    <tr th:if="${#lists.isEmpty(departments)}">
+                                        <td colspan="5" class="empty-state">部署は登録されていません。</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <footer class="table-footer">
+                            <span>有効な従業員が所属する部署は無効化できません。営業実績の履歴は保持します。</span>
+                        </footer>
+                    </section>
+                </main>
+            </section>
+        </div>
+        <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="/js/portal-navigation.js" th:src="@{/js/portal-navigation.js}"></script>
+        <script src="/js/request-security.js" th:src="@{/js/request-security.js}"></script>
+        <script th:src="@{/js/message-dialog.js}"></script>
+        <script th:src="@{/js/page-interactions.js}">
+        </script>
+        <script th:src="@{/js/portal.js}">
+        </script>
+    </body>
+</html>

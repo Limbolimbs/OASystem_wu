@@ -35,6 +35,7 @@ import com.example.demo.repository.UserRepository;
 class AttendanceRequestServiceTest {
     @Mock AttendanceRequestRepository requests;
     @Mock AttendanceRecordRepository records;
+    @Mock com.example.demo.repository.AttendanceBreakRepository breaks;
     @Mock AttendanceEventRepository events;
     @Mock AttendanceAuditLogRepository audit;
     @Mock AttendancePolicyService policies;
@@ -54,11 +55,12 @@ class AttendanceRequestServiceTest {
         request.setRequestType(AttendanceRequestType.LEAVE);
         request.setStartDate(LocalDate.now());
         request.setEndDate(LocalDate.now());
+        org.mockito.Mockito.lenient().when(users.findForUpdate(1L)).thenReturn(Optional.of(employee));
     }
 
     @Test
     void employeeCannotReview() {
-        when(requests.findById(12L)).thenReturn(Optional.of(request));
+        when(requests.findForUpdate(12L)).thenReturn(Optional.of(request));
         User other = new User();
         other.setId(2L);
         other.setRole("EMPLOYEE");
@@ -72,7 +74,7 @@ class AttendanceRequestServiceTest {
     @Test
     void adminCannotApproveOwnRequest() {
         employee.setRole("ADMIN");
-        when(requests.findById(12L)).thenReturn(Optional.of(request));
+        when(requests.findForUpdate(12L)).thenReturn(Optional.of(request));
         when(users.findById(1L)).thenReturn(Optional.of(employee));
         assertThrows(IllegalStateException.class, () -> service.review(1L, 12L, true, null));
     }
@@ -88,7 +90,7 @@ class AttendanceRequestServiceTest {
     @Test
     void duplicatePendingRequestIsRejected() {
         LocalDate date = LocalDate.now();
-        when(users.findById(1L)).thenReturn(Optional.of(employee));
+        when(users.findForUpdate(1L)).thenReturn(Optional.of(employee));
         when(requests.findByUser_IdAndRequestTypeAndStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
                 1L, AttendanceRequestType.LEAVE, RequestStatus.PENDING, date, date))
                 .thenReturn(List.of(request));
@@ -107,7 +109,7 @@ class AttendanceRequestServiceTest {
         reviewer.setId(2L);
         reviewer.setStatus(1);
         reviewer.setRole("GENERAL_AFFAIRS");
-        when(requests.findById(12L)).thenReturn(Optional.of(request));
+        when(requests.findForUpdate(12L)).thenReturn(Optional.of(request));
         when(users.findById(2L)).thenReturn(Optional.of(reviewer));
         when(policies.resolve(1L, saturday)).thenReturn(new ScheduleSnapshot(
                 saturday, DayType.REST_DAY, WorkMode.OFFICE, null, null, 0, false));

@@ -1,0 +1,53 @@
+/* OA共通の操作感。状態の意味・業務処理・レイアウトは各画面が管理する。 */
+:root { --motion-fast: 180ms; --motion-standard: 320ms; --motion-ease: cubic-bezier(.16, 1, .3, 1); }
+body :is(.login-button, .primary-button, .business-submit, .business-secondary, .profile-submit, .profile-secondary,
+    .table-action-button, .logout-button, .clock-button, .manage-submit, .message-dialog-actions button, .message-dialog-close,
+    .menu-toggle, .navigation-close, form[data-ajax] button, .ajax-notice button) {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    transition: transform var(--motion-fast) var(--motion-ease), box-shadow var(--motion-standard) ease,
+        background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, opacity var(--motion-fast) ease;
+    touch-action: manipulation;
+}
+body :is(.login-button, .business-submit, .profile-submit, .ui-pending) { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+@media (hover: hover) and (pointer: fine) {
+    body :is(.login-button, .primary-button, .business-submit, .profile-submit):enabled:hover,
+    body a.primary-button:hover { transform: translateY(-2px); box-shadow: 0 9px 20px #1b4f9224; }
+    body :is(.business-secondary, .profile-secondary, .table-action-button, .message-dialog-actions button):enabled:hover { transform: translateY(-1px); }
+    .profile-shortcuts a:hover { transform: translateX(3px); }
+    .nav-item:hover { transform: translateX(2px); }
+}
+body :is(button, .primary-button, .business-secondary):not(:disabled):active { transform: translateY(1px) scale(.975); transition-duration: 75ms; }
+.nav-item, .profile-shortcuts a { transition: transform var(--motion-fast) var(--motion-ease), background-color var(--motion-fast) ease, border-color var(--motion-fast) ease; }
+.button-ripple { position: absolute; pointer-events: none; z-index: -1; border-radius: 50%; background: currentColor; }
+.button-spinner { display: inline-block; width: 15px; height: 15px; flex: 0 0 15px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: button-spin .75s linear infinite; }
+.ui-motion-paused .button-spinner { animation-play-state: paused; }
+body .ui-pending { cursor: progress; transform: none !important; }
+.button-caption { animation: caption-enter 220ms var(--motion-ease); }
+.login-button::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(105deg, transparent 25%, #ffffff24 48%, transparent 70%); transform: translateX(-140%); transition: transform 650ms var(--motion-ease); }
+@media (hover: hover) and (pointer: fine) { .login-button:enabled:hover::after { transform: translateX(140%); } }
+body .login-button.ui-pending { opacity: 1; box-shadow: 0 8px 22px #2563eb30; }
+.login-box .form-group label { transition: color var(--motion-fast) ease; }
+.login-box .form-group:focus-within label { color: #2563eb; }
+input:not([type="checkbox"]):not([type="radio"]), select, textarea { transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, background-color var(--motion-fast) ease; }
+form[aria-busy="true"], [data-ajax-region] { transition: opacity var(--motion-fast) ease; }
+dialog[open]:not(.is-closing) { animation: dialog-enter var(--motion-standard) var(--motion-ease); }
+dialog[open]::backdrop { animation: backdrop-enter var(--motion-standard) ease; }
+dialog[open].is-closing::backdrop { animation: backdrop-exit 180ms ease-out forwards; }
+.error-message:not([hidden]), .field-error, .profile-message:not([hidden]) { animation: feedback-enter 180ms ease-out; }
+.ajax-notice { animation: feedback-enter 200ms var(--motion-ease); }
+@keyframes button-spin { to { transform: rotate(360deg); } }
+@keyframes caption-enter { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes dialog-enter { from { opacity: 0; transform: translateY(18px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes backdrop-enter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes backdrop-exit { to { opacity: 0; } }
+@keyframes feedback-enter { from { opacity: .4; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; }
+    body :is(button, a, input, select, textarea), dialog[open], dialog[open]::backdrop,
+    .error-message, .field-error, .profile-message, .ajax-notice, .button-spinner, .button-caption, .login-button::after,
+    form[aria-busy="true"], [data-ajax-region] { animation: none !important; transition: none !important; }
+    body :is(button, .primary-button, .business-secondary, .profile-shortcuts a, .nav-item):hover,
+    body :is(button, .primary-button, .business-secondary):active { transform: none !important; }
+}

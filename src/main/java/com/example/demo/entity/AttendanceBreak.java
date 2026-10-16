@@ -15,7 +15,7 @@ import jakarta.persistence.Version;
 
 @Entity
 @Table(name = "attendance_break")
-public class AttendanceBreak {
+public class AttendanceBreak extends LogicalDeleteEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -25,10 +25,10 @@ public class AttendanceBreak {
     @JoinColumn(name = "attendance_record_id", nullable = false)
     private AttendanceRecord attendanceRecord;
 
-    @Column(name = "started_at", nullable = false)
+    @Column(name = "started_at", nullable = false, columnDefinition = "DATETIME(6)")
     private LocalDateTime startedAt;
 
-    @Column(name = "ended_at")
+    @Column(name = "ended_at", columnDefinition = "DATETIME(6)")
     private LocalDateTime endedAt;
 
     @Version

@@ -4,14 +4,20 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import com.example.demo.attendance.AttendanceClock;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Version;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Column;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 
 @Entity
-@Table(name = "sales_data")
-public class SalesData {
+@Table(name = "sales_data", uniqueConstraints = @UniqueConstraint(name = "uk_sales_month_department", columnNames = {"sales_month", "department"}))
+public class SalesData extends LogicalDeleteEntity {
 	
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -31,6 +37,32 @@ public class SalesData {
     
     @Column(name = "customer_count",nullable = false)
     private Integer customerCount;
+
+    @Column(length = 500)
+    private String notes;
+    @Column(name = "updated_by")
+    private Long updatedBy;
+    @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "DATETIME(6)")
+    private LocalDateTime createdAt;
+    @Column(name = "updated_at", nullable = false, columnDefinition = "DATETIME(6)")
+    private LocalDateTime updatedAt;
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
+    @PrePersist
+    void create() { createdAt = AttendanceClock.now(); updatedAt = createdAt; }
+    @PreUpdate
+    void update() { updatedAt = AttendanceClock.now(); }
+
+    public String getNotes() { return notes; }
+    public void setNotes(String notes) { this.notes = notes; }
+    public Long getUpdatedBy() { return updatedBy; }
+    public void setUpdatedBy(Long updatedBy) { this.updatedBy = updatedBy; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public Long getVersion() { return version; }
+    public void setVersion(Long version) { this.version = version; }
     
     public SalesData() {
     }

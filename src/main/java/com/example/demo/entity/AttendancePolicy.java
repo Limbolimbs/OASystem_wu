@@ -13,15 +13,15 @@ import jakarta.persistence.Version;
 
 @Entity
 @Table(name = "attendance_policy")
-public class AttendancePolicy {
+public class AttendancePolicy extends LogicalDeleteEntity {
 
     @Id
     private Long id = 1L;
 
-    @Column(name = "standard_start", nullable = false)
+    @Column(name = "standard_start", nullable = false, columnDefinition = "TIME")
     private LocalTime standardStart = LocalTime.of(9, 0);
 
-    @Column(name = "standard_end", nullable = false)
+    @Column(name = "standard_end", nullable = false, columnDefinition = "TIME")
     private LocalTime standardEnd = LocalTime.of(18, 0);
 
     @Column(name = "break_minutes", nullable = false)
@@ -42,7 +42,7 @@ public class AttendancePolicy {
     @Version
     private Long version;
 
-    @Column(name = "updated_at", nullable = false)
+    @Column(name = "updated_at", nullable = false, columnDefinition = "DATETIME(6)")
     private LocalDateTime updatedAt = AttendanceClock.now();
 
     @PreUpdate

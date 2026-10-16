@@ -27,7 +27,7 @@ import jakarta.persistence.Version;
 @Table(name = "work_schedule", uniqueConstraints = {
         @UniqueConstraint(name = "uk_work_schedule_user_date", columnNames = {"user_id", "work_date"})
 })
-public class WorkSchedule {
+public class WorkSchedule extends LogicalDeleteEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -40,10 +40,10 @@ public class WorkSchedule {
     @Column(name = "work_date", nullable = false)
     private LocalDate workDate;
 
-    @Column(name = "planned_start_at")
+    @Column(name = "planned_start_at", columnDefinition = "DATETIME(6)")
     private LocalDateTime plannedStartAt;
 
-    @Column(name = "planned_end_at")
+    @Column(name = "planned_end_at", columnDefinition = "DATETIME(6)")
     private LocalDateTime plannedEndAt;
 
     @Column(name = "break_minutes", nullable = false)
@@ -57,10 +57,10 @@ public class WorkSchedule {
     @Column(name = "work_mode", nullable = false, length = 20)
     private WorkMode workMode = WorkMode.OFFICE;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "DATETIME(6)")
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at", nullable = false)
+    @Column(name = "updated_at", nullable = false, columnDefinition = "DATETIME(6)")
     private LocalDateTime updatedAt;
 
     @Version

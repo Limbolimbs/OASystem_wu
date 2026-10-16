@@ -3,6 +3,7 @@ package com.example.demo.attendance;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 
 /** 勤怠日時は日本時間で統一する。 */
 public final class AttendanceClock {
@@ -10,6 +11,6 @@ public final class AttendanceClock {
 
     private AttendanceClock() { }
 
-    public static LocalDateTime now() { return LocalDateTime.now(ZONE); }
+    public static LocalDateTime now() { return LocalDateTime.now(ZONE).truncatedTo(ChronoUnit.MICROS); }
     public static LocalDate today() { return LocalDate.now(ZONE); }
 }

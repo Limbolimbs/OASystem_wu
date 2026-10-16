@@ -20,7 +20,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "attendance_event")
-public class AttendanceEvent {
+public class AttendanceEvent extends LogicalDeleteEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -42,7 +42,7 @@ public class AttendanceEvent {
     @Column(name = "event_type", nullable = false, length = 30)
     private AttendanceEventType eventType;
 
-    @Column(name = "event_at", nullable = false)
+    @Column(name = "event_at", nullable = false, columnDefinition = "DATETIME(6)")
     private LocalDateTime eventAt;
 
     @Enumerated(EnumType.STRING)
@@ -52,7 +52,7 @@ public class AttendanceEvent {
     @Column(name = "note", length = 1000)
     private String note;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "DATETIME(6)")
     private LocalDateTime createdAt = AttendanceClock.now();
 
     public Long getId() { return id; }

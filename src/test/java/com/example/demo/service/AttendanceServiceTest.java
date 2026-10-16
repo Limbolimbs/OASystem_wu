@@ -49,7 +49,7 @@ class AttendanceServiceTest {
 
     @Test
     void clockInCreatesRecordAndEvent() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(activeUser));
+        when(userRepository.findForUpdate(1L)).thenReturn(Optional.of(activeUser));
         when(attendanceRepository.findFirstByUser_IdAndClockOutAtIsNullOrderByClockInAtDesc(1L))
                 .thenReturn(Optional.empty());
         when(policyService.resolve(any(), any())).thenAnswer(call -> {
@@ -67,7 +67,7 @@ class AttendanceServiceTest {
 
     @Test
     void duplicateClockInDoesNotOverwriteOpenRecord() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(activeUser));
+        when(userRepository.findForUpdate(1L)).thenReturn(Optional.of(activeUser));
         when(attendanceRepository.findFirstByUser_IdAndClockOutAtIsNullOrderByClockInAtDesc(1L))
                 .thenReturn(Optional.of(new AttendanceRecord()));
         assertThrows(IllegalStateException.class, () -> attendanceService.clockIn(1L));
@@ -76,7 +76,7 @@ class AttendanceServiceTest {
 
     @Test
     void clockOutRequiresOpenClockIn() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(activeUser));
+        when(userRepository.findForUpdate(1L)).thenReturn(Optional.of(activeUser));
         when(attendanceRepository.findFirstByUser_IdAndClockOutAtIsNullOrderByClockInAtDesc(1L))
                 .thenReturn(Optional.empty());
         assertThrows(IllegalStateException.class, () -> attendanceService.clockOut(1L));
@@ -85,7 +85,7 @@ class AttendanceServiceTest {
     @Test
     void inactiveUserCannotClockIn() {
         activeUser.setStatus(0);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(activeUser));
+        when(userRepository.findForUpdate(1L)).thenReturn(Optional.of(activeUser));
         assertThrows(IllegalStateException.class, () -> attendanceService.clockIn(1L));
     }
 
@@ -95,7 +95,7 @@ class AttendanceServiceTest {
         record.setUser(activeUser);
         record.setWorkDate(LocalDate.now().minusDays(1));
         record.setClockInAt(LocalDateTime.now().minusHours(8));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(activeUser));
+        when(userRepository.findForUpdate(1L)).thenReturn(Optional.of(activeUser));
         when(attendanceRepository.findFirstByUser_IdAndClockOutAtIsNullOrderByClockInAtDesc(1L))
                 .thenReturn(Optional.of(record));
         when(policyService.resolve(1L, record.getWorkDate())).thenReturn(new ScheduleSnapshot(
@@ -115,7 +115,7 @@ class AttendanceServiceTest {
         record.setUser(activeUser);
         record.setWorkDate(LocalDate.now());
         record.setClockInAt(LocalDateTime.now().minusHours(2));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(activeUser));
+        when(userRepository.findForUpdate(1L)).thenReturn(Optional.of(activeUser));
         when(attendanceRepository.findFirstByUser_IdAndClockOutAtIsNullOrderByClockInAtDesc(1L))
                 .thenReturn(Optional.of(record));
         when(breakRepository.findFirstByAttendanceRecord_IdAndEndedAtIsNullOrderByStartedAtDesc(null))
@@ -133,5 +133,17 @@ class AttendanceServiceTest {
                 workDate.atTime(22, 0), workDate.plusDays(1).atTime(6, 0), 60, true));
         org.junit.jupiter.api.Assertions.assertEquals(workDate,
                 attendanceService.determineWorkDate(1L, punchAt));
+    }
+
+    @Test void clockOutCannotEqualClockInAndDoesNotWriteAnEvent() {
+        LocalDateTime at=LocalDateTime.of(2026,10,16,9,0);
+        AttendanceRecord record=new AttendanceRecord();record.setUser(activeUser);record.setClockInAt(at);
+        when(userRepository.findForUpdate(1L)).thenReturn(Optional.of(activeUser));
+        when(attendanceRepository.findFirstByUser_IdAndClockOutAtIsNullOrderByClockInAtDesc(1L)).thenReturn(Optional.of(record));
+        try(var clock=org.mockito.Mockito.mockStatic(com.example.demo.attendance.AttendanceClock.class)){
+            clock.when(com.example.demo.attendance.AttendanceClock::now).thenReturn(at);
+            assertThrows(IllegalStateException.class,()->attendanceService.clockOut(1L));
+        }
+        verify(attendanceRepository,never()).saveAndFlush(any());verify(eventRepository,never()).save(any());
     }
 }

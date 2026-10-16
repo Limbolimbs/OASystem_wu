@@ -1,9 +1,10 @@
 package com.example.demo.service;
 
+import com.example.demo.attendance.AttendanceClock;
+
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,7 +29,6 @@ import com.example.demo.repository.UserRepository;
 
 @Service
 public class AttendanceDayService {
-    private static final ZoneId WORK_ZONE = ZoneId.of("Asia/Tokyo");
     private final AttendancePolicyService policyService;
     private final AttendanceRecordRepository recordRepository;
     private final AttendanceBreakRepository breakRepository;
@@ -54,7 +54,8 @@ public class AttendanceDayService {
                 || (user.getDeletedAt() != null
                     && date.isAfter(user.getDeletedAt().toLocalDate()));
         if (outsideEmployment
-                && recordRepository.findByUser_IdAndWorkDate(user.getId(), date).isEmpty()) {
+                && recordRepository.findByUser_IdAndWorkDate(user.getId(), date)
+                    .filter(value -> !value.isDeleted()).isEmpty()) {
             ScheduleSnapshot empty = new ScheduleSnapshot(date, DayType.REST_DAY,
                     WorkMode.OFFICE, null, null, 0, false);
             return new AttendanceDayView(user.getId(), user.getRealName(), date,
@@ -62,8 +63,9 @@ public class AttendanceDayService {
         }
         ScheduleSnapshot schedule = policyService.resolve(user.getId(), date);
         AttendanceRecord record = recordRepository.findByUser_IdAndWorkDate(user.getId(), date)
+                .filter(value -> !value.isDeleted())
                 .orElse(null);
-        LocalDateTime now = LocalDateTime.now(WORK_ZONE);
+        LocalDateTime now = AttendanceClock.now();
         var policy = policyService.policyForDate(date);
         List<String> states = new ArrayList<>();
 

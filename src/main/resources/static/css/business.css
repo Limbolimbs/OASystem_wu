@@ -1,0 +1,22 @@
+/* 部署管理・営業実績管理の共通部品。共通レイアウトはportal-layout.cssを使用する。 */
+.business-panel { margin: 22px 0; padding: 26px; border: 1px solid #dbe4ed; border-radius: 16px; background: #fff; box-shadow: 0 10px 30px rgba(29,55,86,.06); }
+.business-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+.business-heading h2 { margin: 0; font-size: 18px; }
+.business-value { margin: 4px 0; font-size: 20px; font-weight: 800; }
+.business-fields { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 20px; }
+.business-fields label { display: grid; align-content: start; gap: 9px; color: #405674; font-size: 13px; font-weight: 700; }
+.business-fields input, .business-fields select, .business-fields textarea { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid #d6e0ea; border-radius: 9px; background: #f8fafc; color: #0f2742; font: inherit; }
+.business-fields input:focus, .business-fields select:focus, .business-fields textarea:focus { outline: 2px solid #93c5fd; outline-offset: 1px; }
+.business-fields input[readonly], .business-fields select:disabled { background: #edf3f8; }
+.wide-field { grid-column: 1 / -1; }
+.check-field { display: flex; align-items: center; gap: 8px; margin: 16px 0; font-size: 12px; }
+.check-field input { accent-color: #2563eb; width: 16px; height: 16px; }
+.business-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 20px 0 14px; }
+.business-submit, .business-secondary { display: inline-flex; justify-content: center; align-items: center; min-height: 42px; padding: 10px 18px; border: 1px solid #d6e0ea; border-radius: 9px; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
+.business-submit { border-color: #2563eb; background: #2563eb; color: #fff; }
+.business-submit:hover { background: #1d4ed8; }
+.business-secondary { background: #f8fafc; color: #174d7e; }
+.muted { color: #71819a; font-size: 12px; line-height: 1.8; }
+.negative { color: #dc2626; }
+@media (max-width: 1000px) { .business-fields { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width: 760px) { .business-fields { grid-template-columns: 1fr; } .business-heading { align-items: flex-start; flex-direction: column; } .business-panel { padding: 20px; } }

@@ -11,7 +11,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "company_holiday")
-public class CompanyHoliday {
+public class CompanyHoliday extends LogicalDeleteEntity {
 
     @Id
     @Column(name = "holiday_date")
@@ -20,7 +20,7 @@ public class CompanyHoliday {
     @Column(name = "name", nullable = false, length = 100)
     private String name;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "DATETIME(6)")
     private LocalDateTime createdAt = AttendanceClock.now();
 
     public LocalDate getHolidayDate() { return holidayDate; }

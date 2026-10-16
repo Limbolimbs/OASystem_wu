@@ -3,6 +3,7 @@ package com.example.demo.service;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.List;
 
@@ -58,7 +59,7 @@ public class AttendancePolicyService {
 
     @Transactional(readOnly = true)
     public AttendancePolicy currentPolicy() {
-        return policyRepository.findById(1L).orElseGet(AttendancePolicy::new);
+        return policyRepository.findById(1L).filter(value -> !value.isDeleted()).orElseGet(AttendancePolicy::new);
     }
 
     @Transactional(readOnly = true)
@@ -89,7 +90,8 @@ public class AttendancePolicyService {
 
     @Transactional(readOnly = true)
     public ScheduleSnapshot resolve(Long userId, LocalDate date) {
-        Optional<WorkSchedule> assigned = scheduleRepository.findByUser_IdAndWorkDate(userId, date);
+        Optional<WorkSchedule> assigned = scheduleRepository.findByUser_IdAndWorkDate(userId, date)
+                .filter(value -> !value.isDeleted());
         if (assigned.isPresent()) {
             WorkSchedule value = assigned.get();
             return new ScheduleSnapshot(date, value.getDayType(), value.getWorkMode(),
@@ -119,6 +121,7 @@ public class AttendancePolicyService {
     }
 
     @Transactional
+    @com.example.demo.security.BusinessAudit(operation = "POLICY_CHANGE", target = "POLICY")
     public AttendancePolicy updatePolicy(
             Long actorId,
             LocalTime start,
@@ -137,10 +140,14 @@ public class AttendancePolicyService {
                 || workDaysMask < 1 || workDaysMask > 127) {
             throw new IllegalArgumentException("勤務ルールの入力値を確認してください。");
         }
+        Duration shift = Duration.between(start, end);
+        if (shift.isNegative()) shift = shift.plusDays(1);
+        validateBreakDuration(shift, breakMinutes);
 
         AttendancePolicy policy = policyRepository.findById(1L)
                 .orElseGet(AttendancePolicy::new);
         String before = policySummary(policy);
+        policy.restore();
         policy.setStandardStart(start);
         policy.setStandardEnd(end);
         policy.setBreakMinutes(breakMinutes);
@@ -152,6 +159,7 @@ public class AttendancePolicyService {
         LocalDate effective = AttendanceClock.today().plusDays(1);
         AttendancePolicyHistory next = historyRepository.findById(effective)
                 .orElseGet(AttendancePolicyHistory::new);
+        next.restore();
         next.setEffectiveFrom(effective);
         next.setStandardStart(start);
         next.setStandardEnd(end);
@@ -166,14 +174,15 @@ public class AttendancePolicyService {
     }
 
     @Transactional
+    @com.example.demo.security.BusinessAudit(operation = "SCHEDULE_SAVE", target = "SCHEDULE")
     public WorkSchedule assignSchedule(
             Long actorId, Long userId, LocalDate workDate,
             DayType dayType, WorkMode workMode,
             LocalDateTime plannedStartAt, LocalDateTime plannedEndAt, int breakMinutes) {
 
-        User user = userRepository.findById(userId)
+        User user = userRepository.findForUpdate(userId)
                 .orElseThrow(() -> new IllegalArgumentException("対象ユーザーが見つかりません。"));
-        if (!Integer.valueOf(1).equals(user.getStatus())) {
+        if (!user.isActive()) {
             throw new IllegalStateException("無効な従業員に勤務予定を登録できません。");
         }
         if (workDate == null || dayType == null || workMode == null
@@ -188,6 +197,7 @@ public class AttendancePolicyService {
                     || plannedEndAt.isAfter(plannedStartAt.plusHours(36))) {
                 throw new IllegalArgumentException("勤務開始・終了日時を確認してください。");
             }
+            validateBreakDuration(Duration.between(plannedStartAt, plannedEndAt), breakMinutes);
         } else {
             if (recordRepository.findByUser_IdAndWorkDate(userId, workDate).isPresent()) {
                 throw new IllegalStateException("打刻済みの日は非勤務日に変更できません。先に記録を確認してください。");
@@ -200,6 +210,7 @@ public class AttendancePolicyService {
         WorkSchedule schedule = scheduleRepository.findByUser_IdAndWorkDate(userId, workDate)
                 .orElseGet(WorkSchedule::new);
         String before = schedule.getId() == null ? null : scheduleSummary(schedule);
+        schedule.restore();
         schedule.setUser(user);
         schedule.setWorkDate(workDate);
         schedule.setDayType(dayType);
@@ -214,6 +225,7 @@ public class AttendancePolicyService {
     }
 
     @Transactional
+    @com.example.demo.security.BusinessAudit(operation = "HOLIDAY_SAVE", target = "HOLIDAY", idArgument = 1)
     public void saveHoliday(Long actorId, LocalDate date, String name) {
         if (date == null || name == null || name.isBlank() || name.length() > 100) {
             throw new IllegalArgumentException("休日の日付と名称を入力してください。");
@@ -221,6 +233,7 @@ public class AttendancePolicyService {
         CompanyHoliday holiday = holidayRepository.findById(date)
                 .orElseGet(CompanyHoliday::new);
         String before = holiday.getName();
+        holiday.restore();
         holiday.setHolidayDate(date);
         holiday.setName(name.trim());
         holidayRepository.save(holiday);
@@ -229,22 +242,34 @@ public class AttendancePolicyService {
     }
 
     @Transactional
+    @com.example.demo.security.BusinessAudit(operation = "HOLIDAY_DEACTIVATE", target = "HOLIDAY", idArgument = 1)
     public void removeHoliday(Long actorId, LocalDate date) {
         CompanyHoliday holiday = holidayRepository.findById(date)
                 .orElseThrow(() -> new IllegalArgumentException("対象の休日が見つかりません。"));
-        audit(actorId, "DELETE_HOLIDAY", "company_holiday", date.toString(),
+        if (holiday.isDeleted()) return;
+        audit(actorId, "DEACTIVATE_HOLIDAY", "company_holiday", date.toString(),
                 holiday.getName(), null);
-        holidayRepository.delete(holiday);
+        holiday.softDelete();
+        holidayRepository.save(holiday);
     }
 
     @Transactional
+    @com.example.demo.security.BusinessAudit(operation = "SCHEDULE_DEACTIVATE", target = "SCHEDULE", idArgument = 1)
     public void removeSchedule(Long actorId, Long scheduleId) {
         WorkSchedule schedule = scheduleRepository.findById(scheduleId)
                 .orElseThrow(() -> new IllegalArgumentException("対象の勤務予定が見つかりません。"));
-        audit(actorId, "DELETE_SCHEDULE", "work_schedule",
+        if (schedule.isDeleted()) return;
+        audit(actorId, "DEACTIVATE_SCHEDULE", "work_schedule",
                 schedule.getUser().getId() + ":" + schedule.getWorkDate(),
                 scheduleSummary(schedule), null);
-        scheduleRepository.delete(schedule);
+        schedule.softDelete();
+        scheduleRepository.save(schedule);
+    }
+
+    private void validateBreakDuration(Duration shift, int breakMinutes) {
+        if (Duration.ofMinutes(breakMinutes).compareTo(shift) > 0) {
+            throw new IllegalArgumentException("所定休憩は勤務開始から終了までの時間以内で指定してください。");
+        }
     }
 
     private void audit(Long actorId, String action, String targetType, String targetId,

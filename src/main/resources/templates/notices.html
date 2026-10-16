@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <th:block th:replace="~{fragments/security :: csrf}"></th:block>
+    <title>お知らせ管理 | 企業OAシステム</title>
+    <link rel="stylesheet" th:href="@{/css/portal-layout.css}" href="/css/portal-layout.css">
+    <link rel="stylesheet" th:href="@{/css/portal-components.css}" href="/css/portal-components.css">
+    <link rel="stylesheet" th:href="@{/css/business.css}" href="/css/business.css">
+    <link rel="stylesheet" th:href="@{/css/notices.css}" href="/css/notices.css">
+    <link rel="stylesheet" th:href="@{/css/status-messages.css}" href="/css/status-messages.css">
+    <link rel="stylesheet" th:href="@{/css/message-dialog.css}" href="/css/message-dialog.css">
+    <th:block th:replace="~{fragments/portal :: feedback}"></th:block>
+</head>
+<body>
+<div class="app-shell">
+    <aside th:replace="~{fragments/sidebar :: sidebar('notices', ${admin}, ${salesAccess})}"></aside>
+    <section class="main-area">
+        <header th:replace="~{fragments/portal :: header('お知らせ管理', 'currentTime', ${user.realName})}"></header>
+        <main class="content" id="mainContent" tabindex="-1">
+            <section class="page-hero"><div><p class="eyebrow">社内通知・公告</p><h1>お知らせ管理</h1><p class="hero-description">会社からの連絡を確認し、必要な情報を共有します。</p></div>
+                <a th:if="${canEdit}" href="#notice-editor" class="business-secondary">お知らせを作成 →</a>
+            </section>
+            <section class="notice-summary" id="notice-count" th:fragment="notice-count" data-ajax-region th:attr="data-ajax-url=@{/notices(keyword=${keyword},filter=${filter})}">
+                <div><p class="muted">未読のお知らせ</p><strong th:text="${unreadCount + ' 件'}">0 件</strong></div>
+                <div><p class="muted">利用権限</p><strong th:text="${canEdit ? '閲覧・作成・編集' : '公開されたお知らせを閲覧'}">閲覧</strong>
+                    <p class="muted">管理者・総務担当のみ公開内容を変更できます。変更後は再度未読になります。</p></div>
+            </section>
+            <section class="business-panel" id="notice-editor" th:if="${canEdit}">
+                <div class="business-heading"><h2 id="noticeFormTitle">お知らせを作成</h2><span class="muted">管理者・総務担当専用</span></div>
+                <form id="noticeForm" th:action="@{/notices/save}" method="post" data-ajax data-ajax-targets="notice-data notice-count" data-ajax-reset data-ajax-reset-pages="notice-data">
+                    <input type="hidden" name="id"><input type="hidden" name="version">
+                    <div class="business-fields">
+                        <label class="wide-field">件名<input name="title" maxlength="120" required placeholder="例：定期健康診断のお知らせ"></label>
+                        <label>分類<select name="category" required><option>一般</option><option>人事・総務</option><option>勤怠</option><option>営業</option><option>システム</option></select></label>
+                        <label>重要度<select name="priority" required><option value="NORMAL">通常</option><option value="IMPORTANT">重要</option></select></label>
+                        <label>公開状態<select name="status" required><option value="DRAFT">下書き</option><option value="PUBLISHED">公開</option></select></label>
+                        <label class="wide-field">本文<textarea name="content" rows="7" maxlength="10000" required placeholder="社員に伝える内容を入力してください。"></textarea></label>
+                    </div>
+                    <p class="muted">下書きは社員に表示されません。「公開」を選んで保存すると全社員が閲覧できます。</p>
+                    <div class="business-actions"><button class="business-submit" type="submit">保存する</button><button class="business-secondary" id="noticeReset" type="button">新規作成に戻る</button></div>
+                </form>
+            </section>
+            <section class="business-panel">
+                <div class="business-heading"><h2>お知らせ一覧</h2><a id="noticeRefresh" class="business-secondary" data-ajax-targets="notice-data notice-count" th:href="@{/notices(keyword=${keyword},filter=${filter})}">一覧を再取得</a></div>
+                <form class="notice-search" th:action="@{/notices}" method="get" data-ajax data-ajax-targets="notice-data notice-count">
+                    <label>キーワード<input name="keyword" maxlength="100" th:value="${keyword}" placeholder="件名・本文から検索"></label>
+                    <label th:if="${canEdit}">表示対象<select name="filter"><option value="ALL" th:selected="${filter == 'ALL'}">有効なお知らせ</option><option value="PUBLISHED" th:selected="${filter == 'PUBLISHED'}">公開中</option><option value="DRAFT" th:selected="${filter == 'DRAFT'}">下書き</option><option value="INACTIVE" th:selected="${filter == 'INACTIVE'}">無効</option></select></label>
+                    <button class="business-submit" type="submit">検索</button>
+                </form>
+                <div id="notice-data" th:fragment="notice-data" data-ajax-region data-ajax-page-param="page" th:attr="data-ajax-url=@{/notices(keyword=${keyword},filter=${filter},page=${rows.number})}">
+                    <p class="muted" th:text="${rows.totalElements + ' 件 / 1ページ20件'}">0 件</p>
+                    <div class="notice-list">
+                        <article class="notice-card" th:each="item : ${rows.content}" th:attr="data-ajax-lock=${'notice:' + item.id}">
+                            <div class="notice-card-head">
+                                <span class="notice-tag" th:classappend="${item.priority.name() == 'IMPORTANT' ? 'important' : ''}" th:text="${item.priority.name() == 'IMPORTANT' ? '重要' : '通常'}">通常</span>
+                                <span class="notice-tag" th:text="${item.category}">一般</span><span class="notice-tag" th:if="${item.deleted}">無効</span>
+                                <span class="notice-tag" th:if="${canEdit and !item.deleted}" th:text="${item.status.name() == 'PUBLISHED' ? '公開中' : '下書き'}">公開中</span>
+                                <span class="notice-read" th:if="${!item.deleted and item.status.name() == 'PUBLISHED'}" th:text="${item.read ? '既読' : '未読'}">未読</span>
+                            </div>
+                            <button class="notice-title notice-view" type="button" th:attr="data-id=${item.id}" th:text="${item.title}">件名</button>
+                            <p class="muted">作成者：<span th:text="${item.author}">氏名</span> ／ 更新：<time th:text="${#temporals.format(item.updatedAt,'yyyy-MM-dd HH:mm:ss')}">日時</time></p>
+                            <div class="notice-actions" th:if="${canEdit}">
+                                <button th:unless="${item.deleted}" class="business-secondary notice-edit" type="button" th:attr="data-id=${item.id}">編集</button>
+                                <form th:unless="${item.deleted}" th:action="@{/notices/{id}/deactivate(id=${item.id})}" method="post" data-ajax data-ajax-targets="notice-data notice-count" data-confirm-message="このお知らせを無効化しますか？記録は保持されます。">
+                                    <input type="hidden" name="version" th:value="${item.version}"><button class="business-secondary notice-danger" type="submit">無効化</button>
+                                </form>
+                                <form th:if="${item.deleted}" th:action="@{/notices/{id}/restore(id=${item.id})}" method="post" data-ajax data-ajax-targets="notice-data notice-count" data-confirm-message="下書きとして復元しますか？">
+                                    <input type="hidden" name="version" th:value="${item.version}"><button class="business-secondary" type="submit">下書きへ復元</button>
+                                </form>
+                            </div>
+                        </article>
+                        <p class="empty-state" th:if="${rows.empty}">該当するお知らせはありません。</p>
+                    </div>
+                    <nav class="notice-pagination" aria-label="お知らせのページ送り">
+                        <a th:if="${rows.hasPrevious()}" data-ajax-targets="notice-data" th:href="@{/notices(keyword=${keyword},filter=${filter},page=${rows.number - 1})}">前へ</a>
+                        <span th:text="${(rows.number+1) + ' / ' + (rows.totalPages > 0 ? rows.totalPages : 1) + ' ページ'}">1 / 1 ページ</span>
+                        <a th:if="${rows.hasNext()}" data-ajax-targets="notice-data" th:href="@{/notices(keyword=${keyword},filter=${filter},page=${rows.number + 1})}">次へ</a>
+                    </nav>
+                </div>
+            </section>
+        </main>
+    </section>
+</div>
+<dialog id="noticeDetail" class="notice-dialog" aria-labelledby="noticeDetailTitle"><div class="business-heading"><h2 id="noticeDetailTitle">お知らせ</h2><button class="business-secondary" id="noticeClose" type="button">閉じる</button></div>
+    <p class="muted" id="noticeDetailMeta"></p><div class="notice-body" id="noticeDetailBody"></div><p class="muted" id="noticeReadMessage" role="status"></p>
+</dialog>
+<p id="noticeMessage" class="notice-message" role="alert" hidden></p>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="/js/portal-navigation.js" th:src="@{/js/portal-navigation.js}"></script>
+<script src="/js/request-security.js" th:src="@{/js/request-security.js}"></script>
+<script th:src="@{/js/message-dialog.js}" src="/js/message-dialog.js"></script>
+<script th:src="@{/js/page-interactions.js}" src="/js/page-interactions.js"></script><script th:src="@{/js/portal.js}" src="/js/portal.js"></script><script th:src="@{/js/notices.js}" src="/js/notices.js"></script>
+</body>
+</html>

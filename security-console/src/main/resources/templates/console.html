@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="_csrf" th:content="${_csrf.token}"><meta name="_csrf_header" th:content="${_csrf.headerName}">
+<title>管理コンソール</title><link rel="stylesheet" th:href="@{/css/control.css}"><link rel="stylesheet" th:href="@{/css/personnel.css}">
+</head><body th:attr="data-role=${role}">
+<div class="control-shell">
+ <aside class="rail">
+  <div class="brand"><span class="brand-symbol" aria-hidden="true">⌘</span><span>管理コンソール<small>独立管理ワークスペース</small></span></div>
+  <p class="rail-caption">管理メニュー</p><nav aria-label="管理メニュー">
+   <button type="button" data-panel="overview" class="nav-button selected"><span>01</span>概要</button>
+   <button type="button" data-panel="accounts" class="nav-button"><span>02</span>アカウント保護</button>
+   <button type="button" data-panel="sources" class="nav-button"><span>03</span>接続元制限</button>
+   <button type="button" data-panel="events" class="nav-button"><span>04</span>監査ログ</button>
+   <button type="button" data-panel="actions" class="nav-button"><span>05</span>管理操作履歴</button>
+   <button type="button" data-panel="reviews" class="nav-button"><span>06</span>運用申請・審査</button>
+  </nav>
+  <nav class="rail-tools" aria-label="担当者・個人設定">
+   <p class="rail-tools-caption">担当者・個人設定</p>
+   <a class="rail-tool-link" th:if="${role == 'OWNER'}" href="/members"><span aria-hidden="true">07</span>担当者管理<span class="rail-tool-arrow" aria-hidden="true">↗</span></a>
+   <a class="rail-tool-link" href="/personal"><span aria-hidden="true">08</span>個人設定<span class="rail-tool-arrow" aria-hidden="true">↗</span></a>
+   <a class="rail-tool-link" href="/sessions"><span aria-hidden="true">09</span>セッション管理<span class="rail-tool-arrow" aria-hidden="true">↗</span></a>
+  </nav>
+  <div class="rail-bottom"><p><span class="dot"></span>専用管理セッション</p><form id="logoutForm" th:action="@{/auth/logout}" method="post"><button class="secondary full" type="submit">ログアウト ↗</button></form></div>
+ </aside>
+ <main class="workspace">
+  <header class="workspace-header"><div class="breadcrumbs">管理 / <span id="panelName">概要</span></div><div class="operator"><span class="operator-icon" aria-hidden="true">◆</span><span th:text="${operator}">管理者</span></div></header>
+  <section class="console-hero"><div><p class="eyebrow">アクセス状況を確認</p><h1>セキュリティ監視</h1><p class="muted">認証制限と重要操作を、記録から確認します。</p></div><div class="status-box"><span class="dot"></span><strong id="connectionStatus">接続確認中</strong><small id="updatedAt">最終取得：—</small></div></section>
+  <div id="notice" class="message" role="status" hidden></div>
+  <section class="console-shortcuts" aria-labelledby="shortcutsTitle">
+   <div class="shortcut-heading"><h2 id="shortcutsTitle">管理ショートカット</h2><p class="current-role">現在の権限<span class="badge" th:text="${role == 'OWNER' ? '最高管理者' : role == 'OPERATOR' ? '監視・運用' : '監視のみ'}">操作範囲</span></p></div>
+   <nav class="shortcut-actions" aria-label="個人認証と担当者管理">
+    <a class="shortcut-button shortcut-primary" th:if="${role == 'OWNER'}" href="/members" aria-labelledby="membersShortcutLabel">
+     <svg class="shortcut-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="7" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M17 4a3 3 0 0 1 0 6M21 20v-2a6 6 0 0 0-4-5.65"/></svg>
+     <span class="shortcut-copy"><strong id="membersShortcutLabel">セキュリティ担当者管理</strong><small>担当者の追加・権限変更・有効化</small></span><span class="shortcut-arrow" aria-hidden="true">→</span>
+    </a>
+    <a class="shortcut-button shortcut-secondary" href="/personal" aria-labelledby="personalShortcutLabel">
+     <svg class="shortcut-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="7" r="3"/><path d="M5 21v-2a7 7 0 0 1 14 0v2M8 21h8"/></svg>
+     <span class="shortcut-copy"><strong id="personalShortcutLabel">個人設定</strong><small>自分の認証情報を確認</small></span><span class="shortcut-arrow" aria-hidden="true">→</span>
+    </a>
+   <a class="shortcut-button shortcut-secondary" href="/sessions"><span class="shortcut-copy"><strong>セッション管理</strong><small>会話の確認・指定終了・全会話終了</small></span><span class="shortcut-arrow" aria-hidden="true">→</span></a>
+   </nav>
+  </section>
+  <section class="metrics" aria-label="安全状況の概要">
+   <article><p>認証制限</p><strong id="limitedMetric">—</strong><small>現在有効な制限</small></article>
+   <article><p>保護中アカウント</p><strong id="accountMetric">—</strong><small>パスワード認証の停止</small></article>
+   <article><p>接続元の制限</p><strong id="sourceMetric">—</strong><small>期限内の接続元</small></article>
+   <article><p>直近24時間の拒否</p><strong id="rejectMetric">—</strong><small>共通監査の記録数</small></article>
+  </section>
+  <section id="overviewPanel" class="panel">
+   <div class="panel-heading"><div><p class="section-code">状態 / 01</p><h2>管理対象の状態</h2></div><button class="secondary" id="overviewRefresh" type="button">再取得</button></div>
+   <div class="boundary-grid"><article><span class="boundary-number">01</span><h3>独立した管理認証</h3><p>通常の業務アカウントとは別の管理IDと認証器を使用します。</p></article><article><span class="boundary-number">02</span><h3>記録を残す変更</h3><p>保護・解除には理由と新しい認証コードが必要です。監査と同じトランザクションで保存します。</p></article><article><span class="boundary-number">03</span><h3>情報を消さない保護</h3><p>認証保護は新規ログインを停止し、旧会話を失効させます。社員情報・役割・資格情報は保持します。</p></article></div>
+   <div class="inline-note"><span aria-hidden="true">◇</span><p>接続元の完全なIPと証跡を確認できます。地域情報はIP範囲の推定であり、所在地や人物を断定する情報ではありません。</p></div>
+  </section>
+  <section id="accountsPanel" class="panel" hidden>
+   <div class="panel-heading"><div><p class="section-code">認証境界 / 02</p><h2>アカウント保護</h2></div><form id="accountSearch" class="compact-form"><input name="keyword" maxlength="50" placeholder="ログインIDで検索" aria-label="ログインIDで検索"><button class="secondary" type="submit">検索</button></form></div>
+   <p class="panel-note">最大100件を表示します。「保護」は新しいパスワード認証を停止し、「解除」は失敗回数と制限をリセットします。</p>
+   <div class="table-wrap"><table><thead><tr><th>ID</th><th>ログインID</th><th>役割</th><th>社員状態</th><th>失敗回数</th><th>認証状態</th><th>解除予定</th><th>操作</th></tr></thead><tbody id="accountRows"></tbody></table></div>
+  </section>
+  <section id="sourcesPanel" class="panel" hidden>
+   <div class="panel-heading"><div><p class="section-code">接続境界 / 03</p><h2>接続元制限</h2></div><button type="button" data-refresh="sources" class="secondary">再取得</button></div>
+   <p class="panel-note">IPv4/IPv6を省略せず表示します。原始IPは暗号化保存し、識別子は内部照合に使用します。旧記録は「未取得」です。共有出口の制限は複数の利用者に影響する場合があります。</p>
+   <div class="table-wrap"><table><thead><tr><th>接続元IP</th><th>端末環境（自己申告）</th><th>試行回数</th><th>解除予定</th><th>最終確認</th><th>操作・詳細</th></tr></thead><tbody id="sourceRows"></tbody></table></div><div class="pager" data-page="sources"><button class="secondary" type="button" data-direction="-1">前へ</button><span></span><button class="secondary" type="button" data-direction="1">次へ</button></div>
+  </section>
+  <section id="eventsPanel" class="panel" hidden>
+   <div class="panel-heading"><div><p class="section-code">記録 / 04</p><h2>監査ログ</h2></div><form id="eventFilter" class="compact-form"><select name="kind" aria-label="監査の表示対象"><option value="ALL">すべて</option><option value="LOGIN">ログイン関連</option><option value="REJECTED">拒否操作</option></select><button class="secondary" type="submit">絞り込む</button></form></div>
+   <div class="table-wrap"><table><thead><tr><th>発生日時</th><th>接続元IP</th><th>操作コード</th><th>対象</th><th>結果・理由分類</th><th>詳細</th></tr></thead><tbody id="eventRows"></tbody></table></div><div class="pager" data-page="events"><button class="secondary" type="button" data-direction="-1">前へ</button><span></span><button class="secondary" type="button" data-direction="1">次へ</button></div>
+  </section>
+  <section id="actionsPanel" class="panel" hidden>
+   <div class="panel-heading"><div><p class="section-code">管理記録 / 05</p><h2>管理操作履歴</h2></div><button type="button" data-refresh="actions" class="secondary">再取得</button></div>
+   <div class="table-wrap"><table><thead><tr><th>日時</th><th>管理ID</th><th>接続元IP</th><th>操作</th><th>結果</th><th>操作理由</th><th>詳細</th></tr></thead><tbody id="actionRows"></tbody></table></div><div class="pager" data-page="actions"><button class="secondary" type="button" data-direction="-1">前へ</button><span></span><button class="secondary" type="button" data-direction="1">次へ</button></div>
+  </section>
+  <section id="reviewsPanel" class="panel" hidden><div class="panel-heading"><div><p class="section-code">申請・審査 / 06</p><h2>運用申請・審査</h2></div><button type="button" data-refresh="reviews" class="secondary">再取得</button></div><p class="panel-note">解除・24時間制限・管理権限を持つ社員の保護は最高管理者が審査します。担当者は自分の申請を参照します。承認時に対象操作と審査履歴を同時に保存します。</p><div class="table-wrap"><table><thead><tr><th>日時</th><th>申請者</th><th>操作</th><th>対象識別子</th><th>理由</th><th>状態</th><th>審査理由</th><th>審査</th></tr></thead><tbody id="reviewRows"></tbody></table></div></section>
+  <footer class="workspace-footer"><span>操作は監査に記録されます。</span><span>専用管理環境</span></footer>
+ </main>
+</div>
+<dialog id="actionDialog" aria-labelledby="dialogTitle"><form id="actionForm" novalidate><div class="dialog-top"><span class="section-code">変更の確認</span><button type="button" id="dialogClose" class="icon-button" aria-label="閉じる">×</button></div><h2 id="dialogTitle">変更を確認</h2><p id="dialogTarget" class="muted"></p><label id="durationLabel" for="minutes">制限期間</label><select id="minutes" name="minutes"><option value="15">15分</option><option value="60">60分</option><option value="1440">24時間</option></select><label for="reason">操作理由</label><textarea id="reason" name="reason" rows="3" maxlength="300" placeholder="解除・保護する理由を入力" required></textarea><label for="actionOtp">新しい認証コード</label><input id="actionOtp" name="otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required placeholder="000000"><p class="field-note">直前に使用したコードは再使用できません。認証器のコードが更新されてから入力してください。</p><p id="actionError" class="message error" role="alert" hidden></p><div class="dialog-buttons"><button type="button" id="dialogCancel" class="secondary">キャンセル</button><button type="submit" class="primary">確認して実行</button></div></form></dialog>
+<dialog id="evidenceDialog" aria-labelledby="evidenceTitle" class="evidence-dialog">
+ <div class="dialog-top"><span class="section-code">アクセス証跡</span><button type="button" id="evidenceClose" class="icon-button" aria-label="詳細を閉じる">×</button></div>
+ <h2 id="evidenceTitle">接続元・リクエストの詳細</h2><p id="evidenceState" class="muted" role="status">取得しています…</p>
+ <div class="detail-navigation"><button type="button" class="secondary" data-detail-section="connectionDetails">接続情報</button><button type="button" class="secondary" data-detail-section="geographyDetails">推定地域・ASN</button><button type="button" class="secondary" data-detail-section="relatedEvents">関連イベント</button></div>
+ <div id="evidenceContent" hidden><h3 class="detail-heading">接続と端末情報</h3><dl id="connectionDetails" class="detail-grid"></dl>
+ <h3 class="detail-heading">推定地域・ネットワーク</h3><p class="detail-warning">IPデータベースの代表位置です。実際の端末位置・住所・本人を示しません。VPN・共有回線等で所在地と異なる場合があります。</p><dl id="geographyDetails" class="detail-grid"></dl>
+ <p class="data-attribution"><a href="https://db-ip.com" target="_blank" rel="noopener noreferrer">IP Geolocation by DB-IP</a> · CC BY 4.0 · オフライン参照</p>
+ <h3 class="detail-heading">関連する安全イベント</h3><div class="table-wrap"><table><thead><tr><th>日時</th><th>操作</th><th>結果・理由</th></tr></thead><tbody id="relatedEvents"></tbody></table></div>
+ </div><div class="dialog-buttons"><button type="button" id="evidenceDone" class="secondary">閉じる</button></div>
+</dialog>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script><script th:src="@{/js/request-security.js}"></script><script th:src="@{/js/console.js}"></script>
+</body></html>

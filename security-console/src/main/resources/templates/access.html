@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="_csrf" th:content="${_csrf.token}"><meta name="_csrf_header" th:content="${_csrf.headerName}">
+<title>管理アクセス</title><link rel="stylesheet" th:href="@{/css/control.css}"><link rel="stylesheet" th:href="@{/css/personnel.css}">
+</head><body class="access-page">
+<main class="access-shell">
+ <section class="access-art" aria-label="管理アクセスの案内">
+  <div class="brand"><span class="brand-symbol" aria-hidden="true">⌘</span><span>管理コンソール<small>専用アクセス境界</small></span></div>
+  <div class="network" aria-hidden="true"><div class="network-ring ring-a"></div><div class="network-ring ring-b"></div><div class="network-core">認証</div><span class="network-node n-a"></span><span class="network-node n-b"></span><span class="network-node n-c"></span><span class="network-node n-d"></span></div>
+  <p class="eyebrow">認証された操作だけを許可</p><h1>アクセスを守る。<br>変更を記録する。</h1>
+  <p class="muted">管理ID、パスワード、認証器のコードで認証します。<br>接続情報や秘密鍵を画面に表示しません。</p>
+  <div class="access-assurance"><span>独立認証</span><span>二次検証</span><span>操作監査</span></div>
+ </section>
+ <section class="access-form-panel">
+  <span class="section-code">認証 / 01</span><h2>管理アクセス</h2><p class="muted">許可された管理者だけが利用できます。</p>
+  <form id="accessForm" th:action="@{/auth/login}" method="post" novalidate>
+   <label for="operator">管理ID</label><input id="operator" name="operator" autocomplete="username" maxlength="50" required placeholder="専用の管理ID">
+   <label for="password">パスワード</label><input id="password" name="password" type="password" autocomplete="current-password" maxlength="128" required>
+   <label for="otp">認証コード</label><input id="otp" name="otp" class="otp-field" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required placeholder="000000"><p class="field-note">認証器に表示された6桁のコードを入力してください。</p>
+   <p id="accessError" class="message error" role="alert" hidden></p><button class="primary full" type="submit">認証して続行 <span aria-hidden="true">→</span></button>
+  </form>
+  <p class="access-footer">認証情報は共有しないでください。<br>ログイン試行は記録されます。<br><a class="text-link" href="/enrollment">招待を受けた担当者の開通手続き →</a></p>
+ </section>
+</main>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+<script th:src="@{/js/request-security.js}"></script><script th:src="@{/js/access.js}"></script>
+</body></html>

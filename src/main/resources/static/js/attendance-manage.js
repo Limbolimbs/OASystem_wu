@@ -15,15 +15,20 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!type) return;
         document.querySelectorAll(".correction-field").forEach(field => {
             field.hidden = type.value !== "CORRECTION";
+            field.querySelector("input").disabled = field.hidden;
             if (field.hidden) field.querySelector("input").value = "";
         });
         document.querySelectorAll(".overtime-field").forEach(field => {
             field.hidden = type.value !== "OVERTIME";
+            field.querySelector("input").disabled = field.hidden;
+            field.querySelector("input").required = !field.hidden;
             if (field.hidden) field.querySelector("input").value = "";
         });
     }
     if (type) {
         type.addEventListener("change", updateTypeFields);
+        type.form.addEventListener("ajax:success", updateTypeFields);
+        type.form.addEventListener("ajax:idle", updateTypeFields);
         updateTypeFields();
     }
 });

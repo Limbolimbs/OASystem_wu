@@ -1,0 +1,26 @@
+.message-dialog {
+    width: min(480px, calc(100vw - 32px));
+    max-height: calc(100dvh - 48px);
+    padding: 0;
+    border: 1px solid #dbe4ed;
+    border-radius: 18px;
+    background: #fff;
+    color: #0f2742;
+    box-shadow: 0 24px 80px #0b25465c;
+    font: 14px/1.7 "Yu Gothic", "Meiryo", sans-serif;
+    overflow: auto;
+}
+.message-dialog::backdrop { background: #0c284b99; backdrop-filter: blur(4px); }
+.message-dialog-heading { display: flex; justify-content: space-between; gap: 20px; padding: 22px 24px; color: #fff; background: linear-gradient(120deg, #102e50, #205d92); }
+.message-dialog-heading p { margin: 0 0 4px; color: #c8dbef; font-size: 11px; letter-spacing: .08em; }
+.message-dialog-heading h2 { margin: 0; font-size: 19px; }
+.message-dialog-close { align-self: flex-start; width: 30px; height: 30px; border: 1px solid #ffffff40; border-radius: 8px; color: #fff; background: #ffffff14; font: inherit; font-size: 21px; cursor: pointer; }
+.message-dialog-body { margin: 0; padding: 24px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.message-dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 12px; padding: 0 24px 24px; }
+.message-dialog-actions button { min-height: 42px; padding: 9px 20px; border: 1px solid #d5e0ec; border-radius: 9px; background: #f7faff; color: #254e76; font: inherit; font-weight: 700; cursor: pointer; }
+.message-dialog-actions .message-dialog-accept { border-color: #2563eb; color: #fff; background: #2563eb; }
+.message-dialog-actions .message-dialog-danger { border-color: #be3153; background: #be3153; }
+.message-dialog button:focus-visible { outline: 3px solid #93c5fd; outline-offset: 3px; }
+.field-error { margin: 7px 0 0; color: #b32645; font-size: 12px; line-height: 1.6; }
+[aria-invalid="true"] { border-color: #d04c68 !important; box-shadow: 0 0 0 3px #d04c681a; }
+@media (prefers-reduced-motion: reduce) { .message-dialog::backdrop { backdrop-filter: none; } }

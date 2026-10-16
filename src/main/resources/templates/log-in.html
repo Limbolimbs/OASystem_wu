@@ -1,13 +1,16 @@
 <!DOCTYPE html>
 <html lang="ja" xmlns:th="http://www.thymeleaf.org">
 <head>
+    <th:block th:replace="~{fragments/security :: csrf}"></th:block>
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width,initial-scale=1.0">
 		
 		<title>ログイン | 企業OAシステム</title>
 		
 		<link rel="stylesheet" href="/css/login.css" th:href="@{/css/login.css}">
-</head>	
+        <link rel="stylesheet" href="/css/message-dialog.css" th:href="@{/css/message-dialog.css}">
+    <th:block th:replace="~{fragments/portal :: feedback}"></th:block>
+</head>
 <body>
 	<main class="login-container">
 		<!-- 企業案内 -->
@@ -59,12 +62,12 @@
 				
 				  
 				  <div class="form-group">
-					<label for="userName">ユーザー名</label>
+					<label for="userName">ログインID（社員番号）</label>
 					<input class="form-control"
 					       id="userName"
 						   name="userName"
 						   type="text"
-						   placeholder="ユーザー名を入力"
+						   placeholder="社員番号または既存のログインID"
 						   autocomplete="username"
 						   >
 				  </div>
@@ -105,6 +108,9 @@
 	   </footer>
 	   
 	   
+	<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+	<script src="/js/request-security.js" th:src="@{/js/request-security.js}"></script>
+    <script src="/js/message-dialog.js" th:src="@{/js/message-dialog.js}"></script>
 	<script src="/js/login.js" th:src="@{/js/login.js}"></script>
 </body>
 </html>

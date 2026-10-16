@@ -2,107 +2,46 @@
 <html lang="ja" xmlns:th="http://www.thymeleaf.org">
 
 <head>
+    <th:block th:replace="~{fragments/security :: csrf}"></th:block>
     <meta charset="UTF-8">
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0">
 
     <title>経営ダッシュボード｜企業OAシステム</title>
 
-    <link rel="stylesheet" href="/css/home.css" th:href="@{/css/home.css}">
+    <link rel="stylesheet" th:href="@{/css/portal-layout.css}" href="/css/portal-layout.css">
+    <link rel="stylesheet" th:href="@{/css/portal-components.css}" href="/css/portal-components.css">
+    <link rel="stylesheet" th:href="@{/css/home.css}" href="/css/home.css">
+    <link rel="stylesheet" href="/css/business.css" th:href="@{/css/business.css}">
+    <link rel="stylesheet" href="/css/message-dialog.css" th:href="@{/css/message-dialog.css}">
+    <th:block th:replace="~{fragments/portal :: feedback}"></th:block>
 </head>
 
-<body>
+<body class="dashboard-page">
 
-<div class="layout">
+<div class="app-shell">
 
-    <aside class="sidebar">
-
-        <div class="brand">
-            <div class="brand-logo">OA</div>
-
-            <div>
-                <p class="brand-title">企業OAシステム</p>
-                <p class="brand-subtitle">BUSINESS PORTAL</p>
-            </div>
-        </div>
-
-        <p class="menu-label">MAIN MENU</p>
-
-        <a th:href="@{/home}"
-           class="nav-item active">
-            <span class="nav-code">HM</span>
-            ホーム
-        </a>
-
-        <a th:href="@{/users}"
-           class="nav-item">
-            <span class="nav-code">HR</span>
-            従業員情報管理
-        </a>
-
-        <a th:href="@{/attendance}" class="nav-item">
-            <span class="nav-code">AT</span>
-            勤怠管理
-        </a>
-
-        <a th:href="@{/attendance/manage}" class="nav-item">
-            <span class="nav-code">RQ</span>
-            勤怠申請・承認
-        </a>
-
-        <span class="nav-item disabled">
-            <span class="nav-code">NT</span>
-            お知らせ管理
-        </span>
-
-        <div class="sidebar-bottom">
-            <a th:href="@{/logout}"
-               class="nav-item logout-link">
-                <span class="nav-code">EX</span>
-                ログアウト
-            </a>
-        </div>
-
-    </aside>
+<aside th:replace="~{fragments/sidebar :: sidebar('home', true, true)}"></aside>
 
     <section class="main-area">
 
-        <header class="top-header">
+        <header th:replace="~{fragments/portal :: header('経営ダッシュボード', 'today', ${session.loginRealName})}"></header>
 
-            <div>
-                <p class="page-name">経営ダッシュボード</p>
-                <p id="today" class="page-date"></p>
-            </div>
+        <main class="content" id="mainContent" tabindex="-1">
 
-            <div class="user-box">
-                <div class="avatar">U</div>
-
+            <section class="page-hero">
                 <div>
-                    <span>ログイン中</span>
-					<strong th:text="${session.loginRealName}">
-					    社内ユーザー
-					</strong>
-                </div>
-            </div>
-
-        </header>
-
-        <main class="content">
-
-            <section class="hero">
-                <div>
-                    <p class="hero-label">BUSINESS OVERVIEW</p>
+                    <p class="eyebrow">経営状況</p>
                     <h1>業務状況をご確認ください。</h1>
 
-                    <p>
-                        売上、受注および顧客情報を
-                        リアルタイムで表示しています。
+                    <p class="hero-description">売上、受注および顧客情報を
+                        営業部門の登録実績から集計します（30秒ごとに更新）。
                     </p>
                 </div>
 
                 <div class="live-status">
                     <span class="live-dot"></span>
-                    MySQL / Spring Boot API 接続中
+                    <span id="dashboardStatus">データを取得中</span>
                 </div>
             </section>
 
@@ -170,7 +109,7 @@
                     </div>
 
                     <div class="kpi-detail">
-                        sys_user テーブルから取得
+                        有効な従業員アカウントを集計
                     </div>
                 </article>
 
@@ -179,8 +118,9 @@
             <div class="section-header">
                 <div>
                     <h2>経営データ分析</h2>
-                    <p>データはバックエンドから取得しています。</p>
+                    <p>最終取得：<span id="dashboardUpdated">--</span> / 全登録期間の実績を集計</p>
                 </div>
+                <button class="business-secondary" type="button" id="dashboardRefresh">最新データを取得</button>
             </div>
 
             <section class="chart-grid">
@@ -236,7 +176,7 @@
                 </h3>
 
                 <p class="panel-description">
-                    バックエンドから取得した月別データ
+                    営業部門が登録した月別実績
                 </p>
 
                 <div class="table-wrapper">
@@ -275,6 +215,10 @@
 <!-- ECharts -->
 <script src="https://cdn.jsdelivr.net/npm/echarts@6/dist/echarts.min.js"></script>
 
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="/js/portal-navigation.js" th:src="@{/js/portal-navigation.js}"></script>
+<script src="/js/request-security.js" th:src="@{/js/request-security.js}"></script>
+<script src="/js/message-dialog.js" th:src="@{/js/message-dialog.js}"></script>
 <script src="/js/home.js" th:src="@{/js/home.js}"></script>
 
 </body>
