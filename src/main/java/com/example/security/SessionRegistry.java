@@ -12,7 +12,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
-/** 認証Cookieとは別の会話参照。発行と全会話終了は本人別ロックで直列化する。 */
+/**
+ * 認証Cookieとは別の会話参照。発行と全会話終了は本人別ロックで直列化する。
+ * DATETIME(6)には日本時間のLocalDateTimeを直接渡す。
+ * Timestampへ変換するとJVM既定時区と接続時区の差で保存時刻がずれるため使用しない。
+ */
 public final class SessionRegistry {
     public static final String REF="securitySessionReference";
     public static final String OA_OWNER="00000000-0000-0000-0000-000000000000";
@@ -35,7 +39,7 @@ public final class SessionRegistry {
     public static LocalDateTime time(Object value){return value==null?null:value instanceof Timestamp t?t.toLocalDateTime():(LocalDateTime)value;}
     public void initialize(){
         if(jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN('security_session_registry','security_session_subject_guard')",Integer.class)!=2)throw new IllegalStateException("14の会話管理SQLの適用が必要です。");
-        jdbc.update("UPDATE security_session_registry SET revoked_at=?,revocation_reason='RESTART',version=version+1 WHERE realm=? AND owner_key=? AND node_key=? AND runtime_id<>? AND revoked_at IS NULL",Timestamp.valueOf(now()),realm,ownerKey,nodeKey,runtime);
+        jdbc.update("UPDATE security_session_registry SET revoked_at=?,revocation_reason='RESTART',version=version+1 WHERE realm=? AND owner_key=? AND node_key=? AND runtime_id<>? AND revoked_at IS NULL",now(),realm,ownerKey,nodeKey,runtime);
     }
     public long lockSubject(String targetRealm,String targetOwner,String subject){
         jdbc.update("INSERT INTO security_session_subject_guard(realm,owner_key,subject_key) VALUES(?,?,?) ON DUPLICATE KEY UPDATE subject_key=subject_key",targetRealm,targetOwner,subject);
@@ -49,7 +53,7 @@ public final class SessionRegistry {
             LocalDateTime issued=now();String ref=UUID.randomUUID().toString();
             jdbc.update("UPDATE security_session_subject_guard SET sequence_no=? WHERE realm=? AND owner_key=? AND subject_key=?",sequence,realm,ownerKey,subject);
             jdbc.update("INSERT INTO security_session_registry(ref_id,realm,owner_key,subject_key,sequence_no,login_id,role,auth_version,protection_version,node_key,runtime_id,evidence_id,ip_key,issued_at,last_active_at,idle_expires_at,absolute_expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                    ref,realm,ownerKey,subject,sequence,login,role,authVersion,protectionVersion,nodeKey,runtime,uuid(evidence)?evidence:null,ipKey(ip),Timestamp.valueOf(issued),Timestamp.valueOf(issued),Timestamp.valueOf(issued.plus(idle)),Timestamp.valueOf(issued.plus(absolute)));
+                    ref,realm,ownerKey,subject,sequence,login,role,authVersion,protectionVersion,nodeKey,runtime,uuid(evidence)?evidence:null,ipKey(ip),issued,issued,issued.plus(idle),issued.plus(absolute));
             return ref;
         });
     }
@@ -74,11 +78,11 @@ public final class SessionRegistry {
     public void clear(){current.remove();}
     public void requireCurrent(){if(!valid(current.get(),true))throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"会話は終了しています。再ログインしてください。");}
     public boolean touch(String ref){
-        LocalDateTime t=now();return jdbc.update("UPDATE security_session_registry SET last_active_at=?,idle_expires_at=LEAST(?,absolute_expires_at) WHERE ref_id=? AND realm=? AND owner_key=? AND runtime_id=? AND revoked_at IS NULL AND idle_expires_at>? AND absolute_expires_at>?",Timestamp.valueOf(t),Timestamp.valueOf(t.plus(idle)),ref,realm,ownerKey,runtime,Timestamp.valueOf(t),Timestamp.valueOf(t))==1;
+        LocalDateTime t=now();return jdbc.update("UPDATE security_session_registry SET last_active_at=?,idle_expires_at=LEAST(?,absolute_expires_at) WHERE ref_id=? AND realm=? AND owner_key=? AND runtime_id=? AND revoked_at IS NULL AND idle_expires_at>? AND absolute_expires_at>?",t,t.plus(idle),ref,realm,ownerKey,runtime,t,t)==1;
     }
     public void close(String ref,String reason){
         if(!uuid(ref))return;
         if(!Set.of("LOGOUT","LOCAL_END","SESSION_REVOKED","SESSION_PROTECTED","SESSION_IDLE_EXPIRED","SESSION_ABSOLUTE_EXPIRED","AUTH_CHANGED").contains(reason))reason="LOCAL_END";
-        jdbc.update("UPDATE security_session_registry SET revoked_at=?,revocation_reason=?,version=version+1 WHERE ref_id=? AND realm=? AND owner_key=? AND runtime_id=? AND revoked_at IS NULL",Timestamp.valueOf(now()),reason,ref,realm,ownerKey,runtime);
+        jdbc.update("UPDATE security_session_registry SET revoked_at=?,revocation_reason=?,version=version+1 WHERE ref_id=? AND realm=? AND owner_key=? AND runtime_id=? AND revoked_at IS NULL",now(),reason,ref,realm,ownerKey,runtime);
     }
 }
