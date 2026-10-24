@@ -35,8 +35,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 /** 実DB・資格情報を使用せず、実テンプレートの各権限表示を検証する。 */
-@WebMvcTest({HomeController.class, UserController.class, SalesController.class, DepartmentController.class,
-        AttendanceController.class, AttendanceManagementController.class, NoticeController.class, ProfileController.class})
+@WebMvcTest(controllers = {HomeController.class, UserController.class, SalesController.class, DepartmentController.class,
+        AttendanceController.class, AttendanceManagementController.class, NoticeController.class, ProfileController.class},
+        excludeFilters = @org.springframework.context.annotation.ComponentScan.Filter(
+                type = org.springframework.context.annotation.FilterType.ASSIGNABLE_TYPE,
+                classes = {com.example.demo.config.WebConfig.class, com.example.demo.config.LoginInterceptor.class}))
 @AutoConfigureMockMvc(addFilters = false)
 class PortalPagePreviewTest {
     @Autowired MockMvc mvc;

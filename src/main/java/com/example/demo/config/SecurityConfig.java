@@ -12,6 +12,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.csrf.CsrfException;
+import org.springframework.security.web.csrf.CsrfTokenRepository;
+import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfAuthenticationStrategy;
+import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy;
+import org.springframework.security.web.authentication.session.CompositeSessionAuthenticationStrategy;
+import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 
 @Configuration
 @org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
@@ -23,6 +31,25 @@ public class SecurityConfig {
     }
     @Bean public PasswordEncoder passwordEncoder() { return PasswordHashes.encoder(); }
 
+    @Bean
+    public SecurityContextRepository securityContextRepository() {
+        return new HttpSessionSecurityContextRepository();
+    }
+
+    @Bean
+    public CsrfTokenRepository csrfTokenRepository() {
+        return new HttpSessionCsrfTokenRepository();
+    }
+
+    @Bean
+    public SessionAuthenticationStrategy sessionAuthenticationStrategy(CsrfTokenRepository csrfTokenRepository) {
+        java.util.List<SessionAuthenticationStrategy> strategies =
+                new java.util.ArrayList<SessionAuthenticationStrategy>();
+        strategies.add(new ChangeSessionIdAuthenticationStrategy());
+        strategies.add(new CsrfAuthenticationStrategy(csrfTokenRepository));
+        return new CompositeSessionAuthenticationStrategy(strategies);
+    }
+
     private static void failure(HttpServletResponse response, int status, String message, String code) throws java.io.IOException {
         response.setStatus(status);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
@@ -32,51 +59,24 @@ public class SecurityConfig {
     }
 
     @Bean public SecurityFilterChain securityFilterChain(HttpSecurity http,
-            PortalAuthenticationProvider provider, UserService users, SessionLifecycle sessions, AuditService audit,AccountProtection protection) throws Exception {
+            UserService users, SessionLifecycle sessions, AuditService audit, AccountProtection protection,
+            SecurityContextRepository securityContextRepository, CsrfTokenRepository csrfTokenRepository) throws Exception {
         sessions.setProtection(protection);
-        http.authenticationProvider(provider)
-            .requestCache(cache -> cache.disable())
+        http.requestCache(cache -> cache.disable())
+            .securityContext(context -> context.securityContextRepository(securityContextRepository))
             .authorizeHttpRequests(authorize -> authorize
                 .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                 .requestMatchers(HttpMethod.GET, "/", "/favicon.ico", "/css/**", "/js/**", "/images/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/users/login", "/logout").permitAll()
                 .requestMatchers(HttpMethod.GET, "/logout").authenticated()
-                .requestMatchers("/users", "/users/**", "/departments", "/departments/**", "/api/dashboard").hasRole("ADMIN")
-                .requestMatchers("/home", "/my-page", "/my-page/password", "/sales", "/sales/**", "/attendance", "/attendance/**", "/notices", "/notices/**", "/session/activity").authenticated()
+                // 業務URLのSession確認・管理者判定はLoginInterceptorで行う。
+                .requestMatchers("/users", "/users/**", "/departments", "/departments/**", "/api/dashboard").permitAll()
+                .requestMatchers("/home", "/my-page", "/my-page/password", "/sales", "/sales/**", "/attendance", "/attendance/**", "/notices", "/notices/**", "/session/activity").permitAll()
                 .anyRequest().denyAll())
             // 既定のsession保存・XORトークン。除外するPOSTは設けない。
-            .csrf(csrf -> {})
-            .formLogin(form -> form.loginPage("/").loginProcessingUrl("/users/login")
-                .usernameParameter("userName").passwordParameter("password")
-                .successHandler((request, response, authentication) -> {
-                    PortalPrincipal principal = (PortalPrincipal) authentication.getPrincipal();
-                    var user = users.findById(principal.userId()).filter(value -> value.isActive()
-                            && PortalSessionFilter.knownRole(value.getRole())).orElse(null);
-                    if (user == null || user.getAuthenticationVersion() != principal.authenticationVersion()
-                            || !protection.valid(principal.userId(),principal.protectionVersion())) {
-                        request.getSession().invalidate();
-                        org.springframework.security.core.context.SecurityContextHolder.clearContext();
-                        response.setStatus(401); response.getWriter().write("NG"); return;
-                    }
-                    PortalSessionFilter.displayAttributes(request.getSession(), user);
-                    try{sessions.start(request.getSession(), user,principal.protectionVersion());}
-                    catch(RuntimeException unavailable){
-                        request.getSession().invalidate();org.springframework.security.core.context.SecurityContextHolder.clearContext();
-                        org.slf4j.LoggerFactory.getLogger(SecurityConfig.class).error("会話登録の保存障害 correlationId={}",SecurityRequestContext.current().correlationId());
-                        failure(response,503,"認証サービスを利用できません。再度ログインしてください。","AUTH_UNAVAILABLE");return;
-                    }
-                    response.setContentType("text/plain;charset=UTF-8"); response.getWriter().write("OK");
-                })
-                .failureHandler((request, response, exception) -> {
-                    if (request.getSession(false) != null) request.getSession(false).removeAttribute(org.springframework.security.web.context.HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
-                    if (exception instanceof LoginLimitedException limited) {
-                        if(limited.retryAfter()>0)response.setHeader("Retry-After", Long.toString(limited.retryAfter()));
-                        failure(response, 429, "ログイン試行が制限されています。時間をおいて再度お試しいただくか、システム管理者へお問い合わせください。", "LOGIN_LIMITED");
-                    } else if (exception instanceof org.springframework.security.authentication.AuthenticationServiceException) {
-                        org.slf4j.LoggerFactory.getLogger(SecurityConfig.class).error("認証サービス障害 correlationId={}", SecurityRequestContext.current().correlationId());
-                        failure(response, 503, "認証サービスを利用できません。システム管理者へ連絡してください。", "AUTH_UNAVAILABLE");
-                    } else { response.setContentType("text/plain;charset=UTF-8"); response.getWriter().write("NG"); }
-                }))
+            .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository))
+            // ログイン要求をFilterで処理せず、MVCのLoginControllerへ渡す。
+            .formLogin(form -> form.disable())
             .logout(logout -> logout.logoutUrl("/logout").invalidateHttpSession(true).clearAuthentication(true)
                 .deleteCookies("JSESSIONID").logoutSuccessHandler((request, response, authentication) -> {
                     try { audit.security("LOGOUT", authentication != null && authentication.getPrincipal() instanceof PortalPrincipal principal ? principal.userId() : null, "SUCCESS"); }

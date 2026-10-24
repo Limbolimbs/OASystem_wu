@@ -40,7 +40,10 @@ import com.example.demo.service.AttendancePolicyService;
 import com.example.demo.service.AttendanceRequestService;
 import com.example.demo.service.AttendanceService;
 
-@WebMvcTest(controllers = {AttendanceController.class, AttendanceManagementController.class})
+@WebMvcTest(controllers = {AttendanceController.class, AttendanceManagementController.class},
+        excludeFilters = @org.springframework.context.annotation.ComponentScan.Filter(
+                type = org.springframework.context.annotation.FilterType.ASSIGNABLE_TYPE,
+                classes = {com.example.demo.config.WebConfig.class, com.example.demo.config.LoginInterceptor.class}))
 @org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc(addFilters = false)
 class AttendancePageTest {
     @Autowired MockMvc mvc;

@@ -21,7 +21,10 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@WebMvcTest(NoticeController.class)
+@WebMvcTest(controllers = NoticeController.class,
+        excludeFilters = @org.springframework.context.annotation.ComponentScan.Filter(
+                type = org.springframework.context.annotation.FilterType.ASSIGNABLE_TYPE,
+                classes = {com.example.demo.config.WebConfig.class, com.example.demo.config.LoginInterceptor.class}))
 @org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc(addFilters = false)
 class NoticeControllerTest {
     @Autowired MockMvc mvc;

@@ -26,8 +26,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 /** 実際のSecurityFilterChainを通して検証。業務Controllerの単体試験とは分離する。 */
-@WebMvcTest({UserController.class, HomeController.class, NoticeController.class, SessionController.class, ProfileController.class})
-@Import({SecurityConfig.class, PortalAuthenticationProvider.class, SessionLifecycle.class})
+@WebMvcTest({LoginController.class, UserController.class, HomeController.class, NoticeController.class, SessionController.class, ProfileController.class})
+@Import({SecurityConfig.class, com.example.demo.config.WebConfig.class,
+        com.example.demo.config.LoginInterceptor.class, SessionLifecycle.class})
 class SecurityBoundaryTest {
     @Autowired MockMvc mvc;
     @MockitoBean UserService users;
@@ -83,7 +84,8 @@ class SecurityBoundaryTest {
         var session = (MockHttpSession) initial.getRequest().getSession();
         String oldId = session.getId();
         mvc.perform(post("/users/login").session(session).with(csrf()).param("userName", " admin ").param("password", "123"))
-            .andExpect(status().isOk()).andExpect(content().string("OK"));
+            .andExpect(status().isOk()).andExpect(content().string("OK"))
+            .andExpect(handler().handlerType(LoginController.class)).andExpect(handler().methodName("login"));
         assertNotEquals(oldId, session.getId());
         assertEquals(1L, session.getAttribute("loginUserId"));
         var context = (org.springframework.security.core.context.SecurityContext) session.getAttribute(
@@ -148,6 +150,57 @@ class SecurityBoundaryTest {
         var result = mvc.perform(post("/users/login").with(csrf()).param("userName", "admin").param("password", "wrong"))
             .andExpect(status().isOk()).andExpect(content().string("NG")).andReturn();
         assertNull(result.getRequest().getSession().getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY));
+    }
+
+    @Test
+    void controllerLoginReplacesThePreLoginCsrfToken() throws Exception {
+        org.springframework.test.web.servlet.MvcResult page = mvc.perform(get("/")).andReturn();
+        MockHttpSession session = (MockHttpSession) page.getRequest().getSession();
+        org.springframework.security.web.csrf.CsrfToken token =
+                (org.springframework.security.web.csrf.CsrfToken) page.getRequest().getAttribute("_csrf");
+        String oldToken = token.getToken();
+
+        mvc.perform(post("/users/login").session(session).header("X-CSRF-TOKEN", oldToken)
+                        .param("userName", "admin").param("password", "123"))
+                .andExpect(status().isOk()).andExpect(content().string("OK"));
+
+        mvc.perform(post("/notices/2/read").session(session).header("X-CSRF-TOKEN", oldToken))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("CSRF_INVALID"));
+        verifyNoInteractions(notices);
+    }
+
+    @Test
+    void registrationFailureLeavesNoAuthenticatedSession() throws Exception {
+        when(registry.open(anyString(), anyString(), anyString(), anyLong(), anyLong(), any(), any()))
+                .thenThrow(new IllegalStateException("private storage details"));
+        MockHttpSession session = new MockHttpSession();
+        mvc.perform(post("/users/login").session(session).with(csrf())
+                        .param("userName", "admin").param("password", "123"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("AUTH_UNAVAILABLE"))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("private storage details"))));
+        assertTrue(session.isInvalid());
+    }
+
+    @Test
+    @org.junit.jupiter.api.extension.ExtendWith(org.springframework.boot.test.system.OutputCaptureExtension.class)
+    void authenticationDiagnosticLogsOnlyCauseTypeAndSqlCode(
+            org.springframework.boot.test.system.CapturedOutput output) throws Exception {
+        String privateValue = "private-password-should-not-appear";
+        java.sql.SQLException cause = new java.sql.SQLException(privateValue, "42S22", 1054);
+        when(protection.login(anyString(), anyString(), any()))
+                .thenThrow(new IllegalStateException(privateValue, cause));
+
+        mvc.perform(post("/users/login").with(csrf())
+                        .param("userName", "admin").param("password", privateValue))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("AUTH_UNAVAILABLE"))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString(privateValue))));
+        assertTrue(output.getAll().contains("cause=java.sql.SQLException"));
+        assertTrue(output.getAll().contains("sqlState=42S22 sqlErrorCode=1054"));
+        assertFalse(output.getAll().contains(privateValue));
     }
     @Test void protectedOrReleasedOldSessionIsRejectedBeforeBusinessController() throws Exception {
         var session=new MockHttpSession();sessions.start(session,admin,0);

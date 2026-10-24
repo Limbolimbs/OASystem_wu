@@ -23,6 +23,16 @@ Spring Boot、Thymeleaf、MySQLで開発した、企業向けOA業務管理シ�
 - ログインユーザーの氏名表示
 - ログアウト処理
 
+ログイン要求の `POST /users/login` は `LoginController.login()` で受け付けます。
+認証成功時にSession ID・CSRFトークンを更新し、社員ID・ログインID・氏名・役割・所属をHttpSessionへ保存します。
+Sessionにパスワードやハッシュは保存しません。
+業務画面へのアクセスは、`WebConfig`で登録した`LoginInterceptor.preHandle()`でSessionの有無と管理者権限を確認します。
+会話期限・失効・最新アカウント状態の確認とCSRFは維持し、表示用Session属性だけを追加してもログイン扱いにはしません。
+
+ログインを調査する際は、`LoginController.login()`と`LoginInterceptor.preHandle()`にブレークポイントを設定します。
+CSRF不正などの要求はControllerより前に拒否されます。
+認証サービス障害時は、サーバーログの相関ID・例外型・SQLState・SQLエラー番号を確認します。資格情報やSQLの値は出力しません。
+
 ### 経営ダッシュボード
 
 - 累計売上高、受注件数、新規顧客数、登録ユーザー数の表示
