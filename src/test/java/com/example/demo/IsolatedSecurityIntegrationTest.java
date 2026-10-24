@@ -84,6 +84,38 @@ class IsolatedSecurityIntegrationTest extends com.example.demo.acceptance.Isolat
         System.out.println("試験資格情報のHTTP認証・CSRF・POSTログアウト確認: " + records.size() + "件（秘密情報非表示）");
     }
 
+    @Test
+    void legacyFutureCounterCanLoginAndKeepItsNewSession() throws Exception {
+        Optional<com.example.demo.entity.User> found = users.findByUsername("QA_EMP_1");
+        assertTrue(found.isPresent());
+        com.example.demo.entity.User person = found.get();
+        assertEquals("ADMIN", person.getRole());
+        String accountKey = com.example.demo.security.SecurityRequestContext.hash("user:" + person.getId());
+        java.time.LocalDateTime future = java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Tokyo")).plusHours(1);
+        try (java.sql.Connection connection = source.getConnection()) {
+            com.example.demo.acceptance.IsolatedDatabase.require(connection);
+            try (java.sql.PreparedStatement statement = connection.prepareStatement(
+                    "INSERT INTO security_login_attempt(scope,key_hash,attempts,window_start,failure_stage,frozen) "
+                    + "VALUES('ACCOUNT',?,4,?,0,0)")) {
+                statement.setString(1, accountKey);
+                statement.setObject(2, future);
+                statement.executeUpdate();
+            }
+        }
+
+        CookieManager cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+        HttpClient client = HttpClient.newBuilder().cookieHandler(cookies).build();
+        HttpResponse<String> loginPage = get(client, "/");
+        String token = csrf(loginPage.body());
+        String body = "userName=" + encode(person.getUsername()) + "&password="
+                + encode(com.example.demo.acceptance.IsolatedDatabase.ACCOUNT_PASSWORD);
+        HttpResponse<String> login = post(client, "/users/login", body, token);
+        assertEquals(200, login.statusCode());
+        assertEquals("OK", login.body());
+        assertEquals(200, get(client, "/home").statusCode());
+        assertEquals(200, get(client, "/api/dashboard").statusCode());
+    }
+
     @Test void databaseConstraintRejectsPlaintextAndKeepsAllAccountsHashed() throws Exception {
         try (var connection = source.getConnection()) {
             com.example.demo.acceptance.IsolatedDatabase.require(connection);

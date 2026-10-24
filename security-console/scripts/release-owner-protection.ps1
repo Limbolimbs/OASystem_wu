@@ -1,4 +1,4 @@
-param([string]$PrivateDirectory='D:\oa-maintenance\control-private',
+﻿param([string]$PrivateDirectory='D:\oa-maintenance\control-private',
       [string]$JarPath=(Join-Path (Split-Path -Parent $PSScriptRoot) 'target\security-console-1.0.0.jar'),
       [string]$JavaExecutable=(Get-Command java.exe -ErrorAction Stop).Source)
 $ErrorActionPreference='Stop'

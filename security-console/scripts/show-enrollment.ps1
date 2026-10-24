@@ -1,4 +1,4 @@
-param([string]$PrivateDirectory='D:\oa-maintenance\control-private')
+﻿param([string]$PrivateDirectory='D:\oa-maintenance\control-private')
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.Security
 $privateBytes=[Security.Cryptography.ProtectedData]::Unprotect([IO.File]::ReadAllBytes((Join-Path $PrivateDirectory 'settings.dpapi')),$null,[Security.Cryptography.DataProtectionScope]::CurrentUser)

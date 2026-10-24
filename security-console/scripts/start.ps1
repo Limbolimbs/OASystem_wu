@@ -1,4 +1,4 @@
-param([string]$PrivateDirectory='D:\oa-maintenance\control-private',[ValidateRange(1024,65535)][int]$Port=9443,
+﻿param([string]$PrivateDirectory='D:\oa-maintenance\control-private',[ValidateRange(1024,65535)][int]$Port=9443,
       [string]$JavaExecutable=(Get-Command java.exe -ErrorAction Stop).Source)
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.Security

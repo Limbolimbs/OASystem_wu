@@ -1,4 +1,4 @@
-param(
+﻿param(
  [Parameter(Mandatory=$true)][string]$Configuration,
  [string]$Jar,
  [ValidateRange(1024,65535)][int]$Port=8080,

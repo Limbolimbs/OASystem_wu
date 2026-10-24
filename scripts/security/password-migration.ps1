@@ -1,4 +1,4 @@
-param(
+﻿param(
     [ValidateSet('check','migrate','restore')][string]$Mode = 'check',
     [string]$Repository = 'D:\eclipse-workspace\OASystem',
     [string]$DependencyRepository = 'D:\oa-maintenance\build-cache\repository',

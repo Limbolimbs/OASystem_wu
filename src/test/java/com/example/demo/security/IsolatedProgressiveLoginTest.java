@@ -45,7 +45,7 @@ class IsolatedProgressiveLoginTest {
         clock.advance(Duration.ofMinutes(15));fail(5);assertEquals(10,attempts());assertEquals(3600,service.login(login,"correct",remote).retryAfter());
         clock.advance(Duration.ofMinutes(60));fail(5);assertEquals(15,attempts());assertTrue(service.login(login,"correct",remote).protectedLogin());
         assertEquals("SESSION_PROTECTED",life.invalidReason(old,user));clock.advance(Duration.ofHours(25));assertTrue(service.login(login,"correct",remote).protectedLogin());assertEquals(15,attempts());
-        jdbc.update("UPDATE security_login_attempt SET frozen=0,attempts=0,failure_stage=0,blocked_until=NULL,protection_version=protection_version+1,window_start=? WHERE scope='ACCOUNT' AND key_hash=?",java.sql.Timestamp.valueOf(LocalDateTime.ofInstant(clock.instant(),ZoneId.of("Asia/Tokyo"))),key);
+        jdbc.update("UPDATE security_login_attempt SET frozen=0,attempts=0,failure_stage=0,blocked_until=NULL,protection_version=protection_version+1,window_start=? WHERE scope='ACCOUNT' AND key_hash=?",LocalDateTime.ofInstant(clock.instant(),ZoneId.of("Asia/Tokyo")),key);
         assertFalse(protection.valid(user.getId(),first.protectionVersion()));var fresh=service.login(login,"correct",remote);assertTrue(protection.valid(user.getId(),fresh.protectionVersion()));assertEquals(0,attempts());
     }
     @Test void fullSuccessClearsCountersAndObservationExpiresWithoutShorteningBlock(){
@@ -57,5 +57,63 @@ class IsolatedProgressiveLoginTest {
         assertEquals(5,attempts());clock.advance(Duration.ofMinutes(15));fail(5);clock.advance(Duration.ofMinutes(60));fail(4);assertEquals(14,attempts());
         doThrow(new org.springframework.dao.DataAccessResourceFailureException("synthetic audit outage")).when(audit).record(eq("LOGIN_PROTECTED"),any(),any(),any(),any(),any(),any());
         assertThrows(org.springframework.dao.DataAccessResourceFailureException.class,()->service.login(login,"wrong",remote));assertEquals(14,attempts());assertFalse(protection.state(user.getId(),false).protectedLogin());assertEquals(0,protection.state(user.getId(),false).version());
+    }
+
+    private LocalDateTime japaneseNow() {
+        return LocalDateTime.ofInstant(clock.instant(), ZoneId.of("Asia/Tokyo"));
+    }
+
+    private void futureAccount(int failures, int stage, boolean frozen, LocalDateTime blockedUntil) {
+        int protectedValue = 0;
+        if (frozen) {
+            protectedValue = 1;
+        }
+        jdbc.update("INSERT INTO security_login_attempt(scope,key_hash,attempts,window_start,failure_stage,frozen,blocked_until) "
+                + "VALUES('ACCOUNT',?,?,?,?,?,?)", key, failures, japaneseNow().plusHours(1), stage, protectedValue, blockedUntil);
+    }
+
+    @Test
+    void legacyFutureWindowAcceptsCorrectPasswordAndStoresLocalDateTime() {
+        futureAccount(4, 0, false, null);
+        jdbc.update("INSERT INTO security_login_attempt(scope,key_hash,attempts,window_start) VALUES('SOURCE',?,?,?)",
+                SecurityRequestContext.hash(remote), 2, japaneseNow().plusHours(1));
+
+        LoginProtectionService.Outcome result = service.login(login, "correct", remote);
+        assertNotNull(result.user());
+        assertEquals(0, attempts());
+        LocalDateTime stored = jdbc.queryForObject(
+                "SELECT window_start FROM security_login_attempt WHERE scope='ACCOUNT' AND key_hash=?",
+                LocalDateTime.class, key);
+        assertEquals(japaneseNow(), stored);
+        assertEquals(3, jdbc.queryForObject(
+                "SELECT attempts FROM security_login_attempt WHERE scope='SOURCE' AND key_hash=?",
+                Integer.class, SecurityRequestContext.hash(remote)));
+    }
+
+    @Test
+    void legacyFutureWindowDoesNotEraseFailuresAndFifthFailureStillBlocks() {
+        futureAccount(4, 0, false, null);
+        LoginProtectionService.Outcome fifth = service.login(login, "wrong", remote);
+        assertEquals(5, attempts());
+        assertEquals(900, fifth.retryAfter());
+        LoginProtectionService.Outcome blocked = service.login(login, "correct", remote);
+        assertNull(blocked.user());
+        assertEquals(900, blocked.retryAfter());
+        assertEquals(5, attempts());
+    }
+
+    @Test
+    void legacyFutureWindowNeverReleasesProtectedOrBlockedAccounts() {
+        futureAccount(15, 3, true, null);
+        assertTrue(service.login(login, "correct", remote).protectedLogin());
+        assertEquals(15, attempts());
+        verify(users, never()).findLoginUser(anyString(), anyString());
+
+        jdbc.update("UPDATE security_login_attempt SET frozen=0,attempts=10,failure_stage=2,blocked_until=? "
+                + "WHERE scope='ACCOUNT' AND key_hash=?", japaneseNow().plusHours(1), key);
+        LoginProtectionService.Outcome blocked = service.login(login, "correct", remote);
+        assertEquals(3600, blocked.retryAfter());
+        assertEquals(10, attempts());
+        verify(users, never()).findLoginUser(anyString(), anyString());
     }
 }

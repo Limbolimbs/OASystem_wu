@@ -1,4 +1,4 @@
-param([string]$PrivateDirectory='D:\oa-maintenance\control-private')
+﻿param([string]$PrivateDirectory='D:\oa-maintenance\control-private')
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.Security
 if([IO.Path]::GetPathRoot([IO.Path]::GetFullPath($PrivateDirectory)) -ne 'D:\'){throw 'Dドライブの保守領域を指定してください。'}

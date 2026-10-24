@@ -1,12 +1,14 @@
 package com.example.demo.security;
 
-import java.sql.Timestamp;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.text.Normalizer;
 import java.time.*;
 import java.util.*;
 import com.example.demo.entity.User;
 import com.example.demo.service.UserService;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -33,14 +35,24 @@ public class LoginProtectionService {
     }
     private Counter lock(String scope, String key, LocalDateTime now) {
         jdbc.update("INSERT INTO security_login_attempt (scope,key_hash,attempts,window_start) VALUES (?,?,0,?)"
-                + " ON DUPLICATE KEY UPDATE key_hash=key_hash", scope, key, Timestamp.valueOf(now));
+                + " ON DUPLICATE KEY UPDATE key_hash=key_hash", scope, key, now);
         return jdbc.queryForObject("SELECT attempts,window_start,blocked_until,frozen,failure_stage,protection_version FROM security_login_attempt WHERE scope=? AND key_hash=? FOR UPDATE",
-            (row, index) -> new Counter(row.getInt(1), row.getTimestamp(2).toLocalDateTime(),
-                row.getTimestamp(3) == null ? null : row.getTimestamp(3).toLocalDateTime(), row.getInt(4)==1,row.getInt(5),row.getLong(6)), scope, key);
+                new RowMapper<Counter>() {
+                    @Override
+                    public Counter mapRow(ResultSet row, int index) throws SQLException {
+                        int attempts = row.getInt("attempts");
+                        LocalDateTime windowStart = row.getObject("window_start", LocalDateTime.class);
+                        LocalDateTime blockedUntil = row.getObject("blocked_until", LocalDateTime.class);
+                        boolean frozen = row.getInt("frozen") == 1;
+                        int stage = row.getInt("failure_stage");
+                        long version = row.getLong("protection_version");
+                        return new Counter(attempts, windowStart, blockedUntil, frozen, stage, version);
+                    }
+                }, scope, key);
     }
     private void save(String scope, String key, int attempts, LocalDateTime start, LocalDateTime blocked) {
         jdbc.update("UPDATE security_login_attempt SET attempts=?,window_start=?,blocked_until=?,delete_flag=0,deleted_at=NULL WHERE scope=? AND key_hash=?",
-                attempts, Timestamp.valueOf(start), blocked == null ? null : Timestamp.valueOf(blocked), scope, key);
+                attempts, start, blocked, scope, key);
     }
     private long waitSeconds(LocalDateTime now, LocalDateTime until) {
         return until != null && until.isAfter(now) ? Math.max(1, (Duration.between(now, until).toMillis() + 999) / 1000) : 0;
@@ -72,6 +84,11 @@ public class LoginProtectionService {
             boolean newWindow = !from.windowStart().plus(settings.getSourceWindow()).isAfter(now);
             int sourceAttempts = newWindow ? 1 : from.attempts() + 1;
             LocalDateTime sourceStart = newWindow ? now : from.windowStart();
+            // 旧時区の値でも回数は保持する。未来の送信元窓だけを現在時刻から数える。
+            // 有効な制限は上のsourceWaitで拒否済みであり、ここでは解除しない。
+            if (sourceStart.isAfter(now)) {
+                sourceStart = now;
+            }
             LocalDateTime sourceBlocked = sourceAttempts > settings.getSourceLimit() ? sourceStart.plus(settings.getSourceWindow()) : null;
             save("SOURCE", source, sourceAttempts, sourceStart, sourceBlocked);
             if (sourceBlocked != null) { audit.record(operation + "_BLOCKED", found == null ? null : found.getId(), "SOURCE", null, "REJECTED", null, account); return new Outcome(null, waitSeconds(now, sourceBlocked)); }
@@ -94,7 +111,7 @@ public class LoginProtectionService {
             var next = policy.failed(state,now);
             save("ACCOUNT", account, next.failures(), next.windowStart(), next.blockedUntil());
             jdbc.update("UPDATE security_login_attempt SET failure_stage=?,frozen=?,protected_at=?,protection_reason=?,protection_version=protection_version+? WHERE scope='ACCOUNT' AND key_hash=?",
-                    next.stage(),next.protectedLogin()?1:0,next.protectedLogin()?Timestamp.valueOf(now):null,
+                    next.stage(),next.protectedLogin()?1:0,next.protectedLogin()?now:null,
                     next.protectedLogin()?"AUTH_FAILURE_LIMIT":null,next.protectedLogin()?1:0,account);
             audit.record(operation + (next.protectedLogin()?"_PROTECTED":next.blockedUntil()!=null?"_BLOCKED":"_FAILED"),
                     found==null?null:found.getId(),"ACCOUNT",found==null?null:found.getId().toString(),"REJECTED",null,account);

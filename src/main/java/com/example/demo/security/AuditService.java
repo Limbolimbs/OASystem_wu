@@ -1,6 +1,5 @@
 package com.example.demo.security;
 
-import java.sql.Timestamp;
 import java.time.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -20,7 +19,7 @@ public class AuditService {
         var context = SecurityRequestContext.current();
         jdbc.update("INSERT INTO security_audit_log (occurred_at,actor_id,operation_code,target_type,target_id,result,"
                 + "correlation_id,source_key,subject_key,changes_json) VALUES (?,?,?,?,?,?,?,?,?,?)",
-            Timestamp.valueOf(LocalDateTime.ofInstant(clock.instant(), ZoneId.of("Asia/Tokyo"))),
+            LocalDateTime.ofInstant(clock.instant(), ZoneId.of("Asia/Tokyo")),
             actorId, operation, targetType, targetId, result, context.correlationId(), context.sourceKey(), subjectKey, changes);
         evidence.record(context.correlationId(),context.sourceKey(),context.details());
     }

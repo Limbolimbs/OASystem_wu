@@ -31,10 +31,15 @@ public record ProgressiveLoginPolicy(Duration observationWindow, int firstThresh
             int stage=Math.max(state.stage(),state.failures()>=secondThreshold?2:state.failures()>=firstThreshold?1:0);
             return new State(state.failures(),now,stage,null,false);
         }
-        if (state.windowStart().isAfter(now)) throw new IllegalStateException("認証制限の保存時刻が不正です。");
-        if (!state.windowStart().plus(observationWindow).isAfter(now)) return reset(now);
+        LocalDateTime observationStart = state.windowStart();
+        // 旧時区や時計補正で開始日だけが未来になっても、失敗回数・段階は消さない。
+        // 有効な制限と手動解除が必要な保護は、上でそのまま返している。
+        if (observationStart.isAfter(now)) {
+            observationStart = now;
+        }
+        if (!observationStart.plus(observationWindow).isAfter(now)) return reset(now);
         int stage = Math.max(state.stage(), state.failures() >= secondThreshold ? 2 : state.failures() >= firstThreshold ? 1 : 0);
-        return new State(state.failures(), state.windowStart(), stage, null, false);
+        return new State(state.failures(), observationStart, stage, null, false);
     }
     public State failed(State before, LocalDateTime now) {
         State state = current(before, now);

@@ -1,4 +1,4 @@
-param([string]$SourceConfig = 'D:\eclipse-workspace\OASystem\src\main\resources\application.properties',
+﻿param([string]$SourceConfig = 'D:\eclipse-workspace\OASystem\src\main\resources\application.properties',
       [string]$PrivateDirectory = 'D:\oa-maintenance\control-private',
       [string]$DependencyRepository = 'D:\oa-maintenance\build-cache\repository',
       [string]$JavaExecutable = (Get-Command java.exe -ErrorAction Stop).Source)

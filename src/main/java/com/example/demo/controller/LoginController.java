@@ -69,7 +69,7 @@ public class LoginController {
             outcome = loginProtectionService.login(userName.trim(), password, request.getRemoteAddr());
         } catch (RuntimeException exception) {
             clearLogin(request);
-            return authenticationUnavailable(response, exception);
+            return authenticationUnavailable(response, exception, "LOGIN_CHECK");
         }
 
         if (outcome.retryAfter() > 0 || outcome.protectedLogin()) {
@@ -137,7 +137,7 @@ public class LoginController {
                 session.invalidate();
             }
             SecurityContextHolder.clearContext();
-            return authenticationUnavailable(response, exception);
+            return authenticationUnavailable(response, exception, "SESSION_CREATE");
         }
     }
 
@@ -155,7 +155,7 @@ public class LoginController {
         session.removeAttribute("loginDepartment");
     }
 
-    private String authenticationUnavailable(HttpServletResponse response, RuntimeException exception) {
+    private String authenticationUnavailable(HttpServletResponse response, RuntimeException exception, String stage) {
         // 原因の型とSQLエラー番号だけを記録し、パスワードやSQLの値を出力しない。
         Throwable cause = exception;
         String sqlState = "-";
@@ -173,9 +173,14 @@ public class LoginController {
             cause = cause.getCause();
             depth++;
         }
-        logger.error("認証サービス障害 correlationId={} exception={} cause={} sqlState={} sqlErrorCode={}",
-                SecurityRequestContext.current().correlationId(), exception.getClass().getName(),
-                cause.getClass().getName(), sqlState, sqlErrorCode);
+        String origin = "-";
+        StackTraceElement[] frames = cause.getStackTrace();
+        if (frames.length > 0) {
+            origin = frames[0].toString();
+        }
+        logger.error("認証サービス障害 correlationId={} stage={} exception={} cause={} sqlState={} sqlErrorCode={} origin={}",
+                SecurityRequestContext.current().correlationId(), stage, exception.getClass().getName(),
+                cause.getClass().getName(), sqlState, sqlErrorCode, origin);
         response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
         response.setContentType("application/json;charset=UTF-8");
         return "{\"success\":false,\"code\":\"AUTH_UNAVAILABLE\","

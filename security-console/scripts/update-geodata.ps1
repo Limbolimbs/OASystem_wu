@@ -1,4 +1,4 @@
-param([string]$Directory='D:\oa-maintenance\geoip')
+﻿param([string]$Directory='D:\oa-maintenance\geoip')
 $ErrorActionPreference='Stop'
 if([IO.Path]::GetPathRoot([IO.Path]::GetFullPath($Directory)) -ne 'D:\'){throw 'Dドライブの保存先を指定してください。'}
 New-Item -ItemType Directory -Path $Directory -Force|Out-Null

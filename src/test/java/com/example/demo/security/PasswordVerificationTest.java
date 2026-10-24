@@ -5,7 +5,6 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import java.sql.ResultSet;
-import java.sql.Timestamp;
 import java.time.*;
 import java.util.Optional;
 import com.example.demo.entity.User;
@@ -37,10 +36,10 @@ class PasswordVerificationTest {
         when(jdbc.queryForObject(anyString(), any(RowMapper.class), any(), any())).thenAnswer(call -> {
             boolean account = "ACCOUNT".equals(call.getArgument(2));
             ResultSet row = mock(ResultSet.class);
-            when(row.getInt(1)).thenReturn(account ? failures : 0);
-            when(row.getTimestamp(2)).thenReturn(Timestamp.valueOf(LocalDateTime.ofInstant(clock.instant(), ZoneId.of("Asia/Tokyo"))));
-            when(row.getTimestamp(3)).thenReturn(account && blocked != null ? Timestamp.valueOf(blocked) : null);
-            when(row.getInt(4)).thenReturn(account && frozen ? 1 : 0);
+            when(row.getInt("attempts")).thenReturn(account ? failures : 0);
+            when(row.getObject("window_start", LocalDateTime.class)).thenReturn(LocalDateTime.ofInstant(clock.instant(), ZoneId.of("Asia/Tokyo")));
+            when(row.getObject("blocked_until", LocalDateTime.class)).thenReturn(account ? blocked : null);
+            when(row.getInt("frozen")).thenReturn(account && frozen ? 1 : 0);
             return ((RowMapper<?>) call.getArgument(1)).mapRow(row, 0);
         });
     }

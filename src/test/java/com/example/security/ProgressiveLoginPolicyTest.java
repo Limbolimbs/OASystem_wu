@@ -30,6 +30,31 @@ class ProgressiveLoginPolicyTest {
         assertThrows(IllegalArgumentException.class,()->new ProgressiveLoginPolicy(Duration.ZERO,5,Duration.ofMinutes(15),10,Duration.ofMinutes(60),15));
         assertThrows(IllegalArgumentException.class,()->new ProgressiveLoginPolicy(Duration.ofHours(24),5,Duration.ofMinutes(15),10,Duration.ofMinutes(1),15));
     }
-    @Test void futureCounterTimestampFailsClosed(){assertThrows(IllegalStateException.class,()->policy.current(new ProgressiveLoginPolicy.State(2,now.plusMinutes(1),0,null,false),now));}
+    @Test
+    void futureObservationStartKeepsFailuresAndDoesNotBypassNextRestriction() {
+        ProgressiveLoginPolicy.State future = new ProgressiveLoginPolicy.State(4, now.plusHours(1), 0, null, false);
+        ProgressiveLoginPolicy.State current = policy.current(future, now);
+        assertEquals(4, current.failures());
+        assertEquals(now, current.windowStart());
+        ProgressiveLoginPolicy.State fifth = policy.failed(current, now);
+        assertEquals(5, fifth.failures());
+        assertEquals(900, policy.retryAfter(fifth, now));
+
+        ProgressiveLoginPolicy.State ninth = new ProgressiveLoginPolicy.State(9, now.plusHours(1), 1, null, false);
+        ProgressiveLoginPolicy.State tenth = policy.failed(ninth, now);
+        assertEquals(10, tenth.failures());
+        assertEquals(3600, policy.retryAfter(tenth, now));
+    }
+
+    @Test
+    void futureObservationDoesNotReleaseProtectionOrShortenActiveRestriction() {
+        ProgressiveLoginPolicy.State protectedState = new ProgressiveLoginPolicy.State(15, now.plusHours(1), 3, null, true);
+        assertEquals(protectedState, policy.current(protectedState, now));
+        ProgressiveLoginPolicy.State blocked = new ProgressiveLoginPolicy.State(10, now.plusHours(1), 2, now.plusHours(2), false);
+        assertEquals(blocked, policy.current(blocked, now));
+        assertEquals(7200, policy.retryAfter(blocked, now));
+        assertThrows(IllegalStateException.class, () -> policy.current(
+                new ProgressiveLoginPolicy.State(-1, now, 0, null, false), now));
+    }
     @Test void legacyCounterKeepsFirstStageInsteadOfLockingOnEveryNextFailure(){var state=new ProgressiveLoginPolicy.State(5,null,0,null,false);var next=policy.failed(state,now);assertEquals(6,next.failures());assertEquals(1,next.stage());assertNull(next.blockedUntil());}
 }

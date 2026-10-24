@@ -1,4 +1,4 @@
-param([string]$PrivateDirectory='D:\oa-maintenance\control-private',
+﻿param([string]$PrivateDirectory='D:\oa-maintenance\control-private',
       [string]$PublicKeyFile='D:\oa-maintenance\control-public\evidence-public.pem',
       [string]$JavaExecutable=(Get-Command java.exe -ErrorAction Stop).Source)
 $ErrorActionPreference='Stop'
